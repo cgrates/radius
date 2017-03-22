@@ -1,2 +1,2 @@
-# radius
-Limited implementation of radius server
+# radigo
+RADIUS protocol goodies in Go language.
