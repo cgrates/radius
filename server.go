@@ -1,12 +1,14 @@
-package radius
+package radigo
 
 import (
 	"log"
 	"net"
 )
 
-const AUTH_PORT = 1812
-const ACCOUNTING_PORT = 1813
+const (
+	AUTH_PORT       = 1812
+	ACCOUNTING_PORT = 1813
+)
 
 type Server struct {
 	addr     string

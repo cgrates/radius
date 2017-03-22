@@ -1,4 +1,4 @@
-package radius
+package radigo
 
 import (
 	"bytes"
