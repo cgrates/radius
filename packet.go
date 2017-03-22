@@ -228,7 +228,7 @@ type Packet struct {
 	AVPs          []*AVP
 }
 
-func (p *Packet) Encode(b []byte) (n int, ret []byte, err error) {
+func (p *Packet) Encode(b []byte) (n int, err error) {
 	b[0] = uint8(p.Code)
 	b[1] = uint8(p.Identifier)
 	copy(b[4:20], p.Authenticator[:])
@@ -238,7 +238,7 @@ func (p *Packet) Encode(b []byte) (n int, ret []byte, err error) {
 		n, err = p.AVPs[i].Encode(bb)
 		written += n
 		if err != nil {
-			return written, nil, err
+			return written, err
 		}
 		bb = bb[n:]
 	}
@@ -251,7 +251,7 @@ func (p *Packet) Encode(b []byte) (n int, ret []byte, err error) {
 	hasher.Write([]byte(p.server.secret))
 	copy(b[4:20], hasher.Sum(nil))
 
-	return written, b, err
+	return written, err
 }
 
 func (a AttributeType) String() string {
@@ -472,7 +472,7 @@ func (p *Packet) SendAndWait(c net.PacketConn, addr net.Addr) (pac *Packet, err 
 
 func (p *Packet) Send(c net.PacketConn, addr net.Addr) error {
 	var buf [4096]byte
-	n, _, err := p.Encode(buf[:])
+	n, err := p.Encode(buf[:])
 	if err != nil {
 		return err
 	}
