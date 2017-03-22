@@ -23,7 +23,7 @@ type PasswordService struct{}
 func (p *PasswordService) Authenticate(request *Packet) (*Packet, error) {
 	npac := request.Reply()
 	npac.Code = AccessReject
-	npac.AVPs = append(npac.AVPs, AVP{Type: ReplyMessage, Value: []byte("you dick!")})
+	npac.AVPs = append(npac.AVPs, &AVP{Type: ReplyMessage, Value: []byte("unauthorized!")})
 	return npac, nil
 }
 func NewServer(addr string, secret string) *Server {

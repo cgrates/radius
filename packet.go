@@ -200,14 +200,6 @@ const (
 	ReservedEnd                 AttributeType = 254
 )
 
-type Packet struct {
-	server        *Server
-	Code          PacketCode
-	Identifier    uint8
-	Authenticator [16]byte
-	AVPs          []AVP
-}
-
 type AVP struct {
 	Type    AttributeType
 	Value   []byte
@@ -215,6 +207,25 @@ type AVP struct {
 	address net.Addr
 	integer uint32
 	time    time.Time
+}
+
+func (a *AVP) Encode(b []byte) (n int, err error) {
+	fullLen := len(a.Value) + 2 //type and length
+	if fullLen > 255 || fullLen < 2 {
+		return 0, errors.New("value too big for attribute")
+	}
+	b[0] = uint8(a.Type)
+	b[1] = uint8(fullLen)
+	copy(b[2:], a.Value)
+	return fullLen, err
+}
+
+type Packet struct {
+	server        *Server
+	Code          PacketCode
+	Identifier    uint8
+	Authenticator [16]byte
+	AVPs          []*AVP
 }
 
 func (p *Packet) Encode(b []byte) (n int, ret []byte, err error) {
@@ -241,17 +252,6 @@ func (p *Packet) Encode(b []byte) (n int, ret []byte, err error) {
 	copy(b[4:20], hasher.Sum(nil))
 
 	return written, b, err
-}
-
-func (a AVP) Encode(b []byte) (n int, err error) {
-	fullLen := len(a.Value) + 2 //type and length
-	if fullLen > 255 || fullLen < 2 {
-		return 0, errors.New("value too big for attribute")
-	}
-	b[0] = uint8(a.Type)
-	b[1] = uint8(fullLen)
-	copy(b[2:], a.Value)
-	return fullLen, err
 }
 
 func (a AttributeType) String() string {
@@ -409,7 +409,7 @@ func (p *Packet) Attributes(attrType AttributeType) []*AVP {
 	ret := []*AVP(nil)
 	for i, _ := range p.AVPs {
 		if p.AVPs[i].Type == attrType {
-			ret = append(ret, &p.AVPs[i])
+			ret = append(ret, p.AVPs[i])
 		}
 	}
 	return ret
@@ -488,18 +488,18 @@ func (p *Packet) Decode(buf []byte) error {
 	//read attributes
 	b := buf[20:]
 	for len(b) >= 2 {
-		attr := AVP{}
-		attr.Type = AttributeType(b[0])
+		avp := new(AVP)
+		avp.Type = AttributeType(b[0])
 		length := uint8(b[1])
 		if int(length) > len(b) {
 			return errors.New("invalid length")
 		}
-		attr.Value = append(attr.Value, b[2:length]...)
+		avp.Value = append(avp.Value, b[2:length]...)
 		/*validator := validation[attr.Type]
 		if err := validator.Validate(p,&attr); err != nil {
 			return err
 		}*/
-		p.AVPs = append(p.AVPs, attr)
+		p.AVPs = append(p.AVPs, avp)
 		b = b[length:]
 	}
 	return nil
