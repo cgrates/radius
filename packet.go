@@ -221,13 +221,14 @@ func (a *AVP) Encode(b []byte) (n int, err error) {
 }
 
 type Packet struct {
-	server        *Server
+	secret        string
 	Code          PacketCode
 	Identifier    uint8
 	Authenticator [16]byte
 	AVPs          []*AVP
 }
 
+// Encode is used to encode the Packet into buffer b returning number of bytes written or error
 func (p *Packet) Encode(b []byte) (n int, err error) {
 	b[0] = uint8(p.Code)
 	b[1] = uint8(p.Identifier)
@@ -248,7 +249,7 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 	// fix up the authenticator
 	hasher := crypto.Hash(crypto.MD5).New()
 	hasher.Write(b[:written])
-	hasher.Write([]byte(p.server.secret))
+	hasher.Write([]byte(p.secret))
 	copy(b[4:20], hasher.Sum(nil))
 
 	return written, err
@@ -451,7 +452,7 @@ func (p *Packet) Reply() *Packet {
 	pac := new(Packet)
 	pac.Authenticator = p.Authenticator
 	pac.Identifier = p.Identifier
-	pac.server = p.server
+	pac.secret = p.secret
 	return pac
 }
 

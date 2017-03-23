@@ -53,7 +53,7 @@ func (s *Server) ListenAndServe() error {
 		}
 
 		p := b[:n]
-		pac := &Packet{server: s}
+		pac := &Packet{secret: s.secret}
 		err = pac.Decode(p)
 		if err != nil {
 			return err

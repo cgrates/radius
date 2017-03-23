@@ -65,7 +65,7 @@ func (v Validation) Validate(p *Packet, attr *AVP) error {
 
 func DecodeUserPassword(p *Packet, a *AVP) error {
 	//Decode password. XOR against md5(p.server.secret+Authenticator)
-	secAuth := append([]byte(nil), []byte(p.server.secret)...)
+	secAuth := append([]byte(nil), []byte(p.secret)...)
 	secAuth = append(secAuth, p.Authenticator[:]...)
 	m := crypto.Hash(crypto.MD5).New()
 	m.Write(secAuth)
