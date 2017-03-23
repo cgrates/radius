@@ -10,6 +10,8 @@ import (
 )
 
 type PacketCode uint8
+type AttributeName string
+type AttributeType uint8
 
 const (
 	AccessRequest      PacketCode = 1
@@ -22,9 +24,6 @@ const (
 	StatusClient       PacketCode = 13 //(experimental)
 	Reserved           PacketCode = 255
 )
-
-type AttributeType uint8
-type AttributeName string
 
 const (
 	//start rfc2865
@@ -257,6 +256,26 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 	return written, err
 }
 
+func (p *Packet) Decode(buf []byte) error {
+	p.Code = PacketCode(buf[0])
+	p.Identifier = buf[1]
+	copy(p.Authenticator[:], buf[4:20])
+	//read attributes
+	b := buf[20:]
+	for len(b) >= 2 {
+		avp := new(AVP)
+		avp.Type = AttributeType(b[0])
+		length := uint8(b[1])
+		if int(length) > len(b) {
+			return errors.New("invalid length")
+		}
+		avp.Value = append(avp.Value, b[2:length]...)
+		p.AVPs = append(p.AVPs, avp)
+		b = b[length:]
+	}
+	return nil
+}
+
 func (a AttributeType) String() string {
 	switch a {
 	case UserName:
@@ -419,37 +438,6 @@ func (p *Packet) Attributes(attrType AttributeType) []*AVP {
 
 }
 
-func (p *Packet) Valid() bool {
-	switch p.Code {
-	case AccessRequest:
-		if !(p.Has(NASIPAddress) || p.Has(NASIdentifier)) {
-			return false
-		}
-
-		if p.Has(CHAPPassword) && p.Has(UserPassword) {
-			return false
-		}
-		return true
-	case AccessAccept:
-		return true
-	case AccessReject:
-		return true
-	case AccountingRequest:
-		return true
-	case AccountingResponse:
-		return true
-	case AccessChallenge:
-		return true
-	case StatusServer:
-		return true
-	case StatusClient:
-		return true
-	case Reserved:
-		return true
-	}
-	return true
-}
-
 func (p *Packet) Reply() *Packet {
 	pac := new(Packet)
 	pac.Authenticator = p.Authenticator
@@ -458,6 +446,7 @@ func (p *Packet) Reply() *Packet {
 	return pac
 }
 
+/*
 func (p *Packet) SendAndWait(c net.PacketConn, addr net.Addr) (pac *Packet, err error) {
 	var buf [4096]byte
 	err = p.Send(c, addr)
@@ -483,27 +472,21 @@ func (p *Packet) Send(c net.PacketConn, addr net.Addr) error {
 	n, err = c.WriteTo(buf[:n], addr)
 	return err
 }
+*/
 
-func (p *Packet) Decode(buf []byte) error {
-	p.Code = PacketCode(buf[0])
-	p.Identifier = buf[1]
-	copy(p.Authenticator[:], buf[4:20])
-	//read attributes
-	b := buf[20:]
-	for len(b) >= 2 {
-		avp := new(AVP)
-		avp.Type = AttributeType(b[0])
-		length := uint8(b[1])
-		if int(length) > len(b) {
-			return errors.New("invalid length")
-		}
-		avp.Value = append(avp.Value, b[2:length]...)
-		/*validator := validation[attr.Type]
-		if err := validator.Validate(p,&attr); err != nil {
-			return err
-		}*/
-		p.AVPs = append(p.AVPs, avp)
-		b = b[length:]
+// netativeReply generates a reply with unsuccess for received packet
+func negativeReply(pkt *Packet, errMsg string) (rply *Packet) {
+	rply = pkt.Reply()
+	switch pkt.Code {
+	case AccessRequest:
+		rply.Code = AccessReject
+		rply.AVPs = append(rply.AVPs, &AVP{Type: ReplyMessage, Value: []byte(errMsg)})
+	case AccountingRequest:
+		rply.Code = AccountingResponse
+		rply.AVPs = append(rply.AVPs, &AVP{Type: ReplyMessage, Value: []byte(errMsg)})
+	default:
+		rply.Code = Reserved
+		rply.AVPs = append(rply.AVPs, &AVP{Type: ReplyMessage, Value: []byte(errMsg)})
 	}
-	return nil
+	return
 }

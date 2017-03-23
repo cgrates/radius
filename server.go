@@ -11,17 +11,17 @@ const (
 	MetaDefault = "*default" // default client
 )
 
-func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, reqHandlers map[string]func(*Packet) (*Packet, error)) *Server {
+func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, reqHandlers map[PacketCode]func(*Packet) (*Packet, error)) *Server {
 	return &Server{net, addr, secrets, dicts, reqHandlers}
 }
 
 // Server represents a single listener on a port
 type Server struct {
-	net         string                                    // tcp, udp ...
-	addr        string                                    // host:port or :port
-	secrets     map[string]string                         // client bounded secrets, *default for server wide
-	dicts       map[string]*Dictionary                    // client bounded dictionaries, *default for server wide
-	reqHandlers map[string]func(*Packet) (*Packet, error) // map[PacketCode]handler
+	net         string                                                     // tcp, udp ...
+	addr        string                                                     // host:port or :port
+	secrets     map[string]string                                          // client bounded secrets, *default for server wide
+	dicts       map[string]*Dictionary                                     // client bounded dictionaries, *default for server wide
+	reqHandlers map[PacketCode]func(req *Packet) (rply *Packet, err error) // map[PacketCode]handler, 0 for default
 }
 
 // listenConnection will listen on a single inbound connection for packets
@@ -54,11 +54,33 @@ func (s *Server) handleConnection(conn net.Conn) {
 		if !hasKey {
 			dict = s.dicts[MetaDefault]
 		}
-		pac := &Packet{secret: secret, dictionary: dict}
-		if err = pac.Decode(b[:n]); err != nil {
+		pkt := &Packet{secret: secret, dictionary: dict}
+		if err = pkt.Decode(b[:n]); err != nil {
 			log.Printf("error: <%s> when decoding packet", err.Error())
 			continue
 		}
+		hndlr, hasKey := s.reqHandlers[pkt.Code]
+		var rply *Packet
+		if !hasKey {
+			log.Printf("error: <no handler for packet with code: %d>", pkt.Code)
+			rply = negativeReply(pkt, "no handler!")
+		} else {
+			var err error
+			if rply, err = hndlr(pkt); err != nil {
+				rply = negativeReply(pkt, err.Error())
+			}
+		}
+		var buf [4096]byte
+		n, err = rply.Encode(buf[:])
+		if err != nil {
+			log.Printf("error: <%s> on reply attempt", err.Error())
+			continue
+		}
+
+		if _, err = conn.Write(buf[:n]); err != nil {
+			log.Printf("error: <%s> on connection write", err.Error())
+		}
+
 		// execute handler for packet
 		/*
 			ips := pac.Attributes(NASIPAddress)
