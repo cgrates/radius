@@ -101,7 +101,7 @@ func TestPacketEncode(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(ePktEncd, buf[:n]) { // except authenticator which in RFC is randomly generated, ours is hash with secret on original
+	if !reflect.DeepEqual(ePktEncd, buf[:n]) {
 		t.Errorf("Expecting: %+v, received: %+v", ePktEncd, buf[:n])
 	}
 

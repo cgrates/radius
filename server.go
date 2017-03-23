@@ -1,20 +1,15 @@
 package radigo
 
 import (
+	"encoding/binary"
 	"log"
 	"net"
+	"strings"
 )
 
 const (
-	AUTH_PORT       = 1812
-	ACCOUNTING_PORT = 1813
+	MetaDefault = "*default" // default client
 )
-
-type Server struct {
-	addr     string
-	secret   string
-	services map[string]Service
-}
 
 type Service interface {
 	Authenticate(request *Packet) (*Packet, error)
@@ -28,60 +23,99 @@ func (p *PasswordService) Authenticate(request *Packet) (*Packet, error) {
 	npac.AVPs = append(npac.AVPs, &AVP{Type: ReplyMessage, Value: []byte("unauthorized!")})
 	return npac, nil
 }
-func NewServer(addr string, secret string) *Server {
-	return &Server{addr, secret, make(map[string]Service)}
+
+func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, services map[string]Service) *Server {
+	return &Server{net, addr, secrets, dicts, services}
+}
+
+// Server represents a single listener on a port
+type Server struct {
+	net      string                 // tcp, udp ...
+	addr     string                 // host:port or :port
+	secrets  map[string]string      // client bounded secrets, *default for server wide
+	dicts    map[string]*Dictionary // client bounded dictionaries, *default for server wide
+	services map[string]Service
 }
 
 func (s *Server) RegisterService(serviceAddr string, handler Service) {
 	s.services[serviceAddr] = handler
 }
 
-func (s *Server) ListenAndServe() error {
-	addr, err := net.ResolveUDPAddr("udp", s.addr)
-	if err != nil {
-		return err
+// listenConnection will listen on a single inbound connection for packets
+// disconnects on error or unexpected packet length
+func (s *Server) handleConnection(conn net.Conn) {
+	remoteAddr := conn.RemoteAddr().String()
+	var clntID string // IP of the client which should apply special secret or dictionary
+	if idx := strings.Index(remoteAddr, "]:"); idx != -1 {
+		clntID = remoteAddr[1:idx] // ipv6 addr
+	} else {
+		clntID = strings.Split(remoteAddr, ":")[0] // most likely ipv4 addr
 	}
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return err
-	}
-	var b [512]byte
 	for {
-		n, addr, err := conn.ReadFrom(b[:])
+		var b [4096]byte
+		n, err := conn.Read(b[:])
 		if err != nil {
-			return err
+			log.Printf("error: <%s> when reading packets, disconnecting...", err.Error())
+			conn.Close()
+			return
+		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
+			log.Printf("error: unexpected packet length, disconnecting...", err.Error())
+			conn.Close()
+			return
 		}
-
-		p := b[:n]
-		pac := &Packet{secret: s.secret}
-		err = pac.Decode(p)
-		if err != nil {
-			return err
+		secret, hasKey := s.secrets[clntID]
+		if !hasKey {
+			secret = s.secrets[MetaDefault]
 		}
-
-		ips := pac.Attributes(NASIPAddress)
-
-		if len(ips) != 1 {
+		dict, hasKey := s.dicts[clntID]
+		if !hasKey {
+			dict = s.dicts[MetaDefault]
+		}
+		pac := &Packet{secret: secret, dictionary: dict}
+		if err = pac.Decode(b[:n]); err != nil {
+			log.Printf("error: <%s> when decoding packet", err.Error())
 			continue
 		}
+		// execute handler for packet
+		/*
+			ips := pac.Attributes(NASIPAddress)
 
-		ss := net.IP(ips[0].Value[0:4])
+			if len(ips) != 1 {
+				continue
+			}
 
-		service, ok := s.services[ss.String()]
-		if !ok {
-			log.Println("recieved request for unknown service: ", ss)
-			continue
+			ss := net.IP(ips[0].Value[0:4])
 
-			//reject
-		}
-		npac, err := service.Authenticate(pac)
+			service, ok := s.services[ss.String()]
+			if !ok {
+				log.Println("recieved request for unknown service: ", ss)
+				continue
+
+				//reject
+			}
+			npac, err := service.Authenticate(pac)
+			if err != nil {
+				return err
+			}
+			err = npac.Send(conn, addr)
+			if err != nil {
+				return err
+			}
+		*/
+	}
+}
+
+func (s *Server) ListenAndServe() error {
+	ln, err := net.Listen(s.net, s.addr)
+	if err != nil {
+		return err
+	}
+	for {
+		conn, err := ln.Accept()
 		if err != nil {
-			return err
+			// handle error
 		}
-		err = npac.Send(conn, addr)
-		if err != nil {
-			return err
-		}
+		go s.handleConnection(conn)
 	}
 	return nil
 }

@@ -24,6 +24,7 @@ const (
 )
 
 type AttributeType uint8
+type AttributeName string
 
 const (
 	//start rfc2865
@@ -222,6 +223,7 @@ func (a *AVP) Encode(b []byte) (n int, err error) {
 
 type Packet struct {
 	secret        string
+	dictionary    *Dictionary
 	Code          PacketCode
 	Identifier    uint8
 	Authenticator [16]byte
