@@ -11,34 +11,17 @@ const (
 	MetaDefault = "*default" // default client
 )
 
-type Service interface {
-	Authenticate(request *Packet) (*Packet, error)
-}
-
-type PasswordService struct{}
-
-func (p *PasswordService) Authenticate(request *Packet) (*Packet, error) {
-	npac := request.Reply()
-	npac.Code = AccessReject
-	npac.AVPs = append(npac.AVPs, &AVP{Type: ReplyMessage, Value: []byte("unauthorized!")})
-	return npac, nil
-}
-
-func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, services map[string]Service) *Server {
-	return &Server{net, addr, secrets, dicts, services}
+func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, reqHandlers map[string]func(*Packet) (*Packet, error)) *Server {
+	return &Server{net, addr, secrets, dicts, reqHandlers}
 }
 
 // Server represents a single listener on a port
 type Server struct {
-	net      string                 // tcp, udp ...
-	addr     string                 // host:port or :port
-	secrets  map[string]string      // client bounded secrets, *default for server wide
-	dicts    map[string]*Dictionary // client bounded dictionaries, *default for server wide
-	services map[string]Service
-}
-
-func (s *Server) RegisterService(serviceAddr string, handler Service) {
-	s.services[serviceAddr] = handler
+	net         string                                    // tcp, udp ...
+	addr        string                                    // host:port or :port
+	secrets     map[string]string                         // client bounded secrets, *default for server wide
+	dicts       map[string]*Dictionary                    // client bounded dictionaries, *default for server wide
+	reqHandlers map[string]func(*Packet) (*Packet, error) // map[PacketCode]handler
 }
 
 // listenConnection will listen on a single inbound connection for packets
@@ -113,7 +96,8 @@ func (s *Server) ListenAndServe() error {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			// handle error
+			log.Printf("error: <%s>, when establishing new connection", err.Error())
+			continue
 		}
 		go s.handleConnection(conn)
 	}
