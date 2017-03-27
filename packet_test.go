@@ -21,29 +21,29 @@ func TestPacketDecode(t *testing.T) {
 			0x0d, 0x33, 0x67, 0xa2},
 		AVPs: []*AVP{
 			&AVP{
-				Type:  UserName,
-				Value: []byte{0x66, 0x6c, 0x6f, 0x70, 0x73, 0x79}, // flopsy
+				Number:   uint8(1),                                   // User-Name
+				rawValue: []byte{0x66, 0x6c, 0x6f, 0x70, 0x73, 0x79}, // flopsy
 			},
 			&AVP{
-				Type: CHAPPassword,
-				Value: []byte{0x16, 0xe9,
+				Number: uint8(3), // CHAPPassword
+				rawValue: []byte{0x16, 0xe9,
 					0x75, 0x57, 0xc3, 0x16, 0x18, 0x58, 0x95, 0xf2, 0x93, 0xff, 0x63, 0x44, 0x07, 0x72, 0x75}, // 3
 			},
 			&AVP{
-				Type:  NASIPAddress,
-				Value: []byte{0xc0, 0xa8, 0x01, 0x10}, // 192.168.1.16
+				Number:   uint8(4),                       // NASIPAddress
+				rawValue: []byte{0xc0, 0xa8, 0x01, 0x10}, // 192.168.1.16
 			},
 			&AVP{
-				Type:  NASPort,
-				Value: []byte{0x00, 0x00, 0x00, 0x14}, // 20
+				Number:   uint8(5),                       // NASPort
+				rawValue: []byte{0x00, 0x00, 0x00, 0x14}, // 20
 			},
 			&AVP{
-				Type:  ServiceType,
-				Value: []byte{0x00, 0x00, 0x00, 0x02}, // 2
+				Number:   uint8(6),                       // ServiceType
+				rawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 2
 			},
 			&AVP{
-				Type:  FramedProtocol,
-				Value: []byte{0x00, 0x00, 0x00, 0x01}, // 1
+				Number:   uint8(7),                       // FramedProtocol
+				rawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
 			},
 		},
 	}
@@ -65,28 +65,28 @@ func TestPacketEncode(t *testing.T) {
 			0x0d, 0x33, 0x67, 0xa2}, // Authenticator out of origin request
 		AVPs: []*AVP{
 			&AVP{
-				Type:  ServiceType,
-				Value: []byte{0x00, 0x00, 0x00, 0x02}, // 2
+				Number:   6,                              // ServiceType
+				rawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 2
 			},
 			&AVP{
-				Type:  FramedProtocol,
-				Value: []byte{0x00, 0x00, 0x00, 0x01}, // 1
+				Number:   7,                              // FramedProtocol
+				rawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
 			},
 			&AVP{
-				Type:  FramedIPAddress,
-				Value: []byte{0xff, 0xff, 0xff, 0xfe}, // 255.255.255.254
+				Number:   8,                              // FramedIPAddress
+				rawValue: []byte{0xff, 0xff, 0xff, 0xfe}, // 255.255.255.254
 			},
 			&AVP{
-				Type:  FramedRouting,
-				Value: []byte{0x00, 0x00, 0x00, 0x02}, // 0
+				Number:   10,                             // FramedRouting
+				rawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 0
 			},
 			&AVP{
-				Type:  FramedCompression,
-				Value: []byte{0x00, 0x00, 0x00, 0x01}, // 1
+				Number:   13,                             // FramedCompression
+				rawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
 			},
 			&AVP{
-				Type:  FramedMTU,
-				Value: []byte{0x00, 0x00, 0x05, 0xdc}, // 1500
+				Number:   12,                             // FramedMTU
+				rawValue: []byte{0x00, 0x00, 0x05, 0xdc}, // 1500
 			},
 		},
 	}

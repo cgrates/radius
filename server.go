@@ -5,11 +5,20 @@ import (
 	"log"
 	"net"
 	"strings"
+	"sync"
 )
 
 const (
 	MetaDefault = "*default" // default client
 )
+
+// syncedConn locks writing to only one complete request at the time
+type syncedConn struct {
+	sync.Mutex
+	conn net.Conn
+}
+
+type ClientID string
 
 func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, reqHandlers map[PacketCode]func(*Packet) (*Packet, error)) *Server {
 	return &Server{net, addr, secrets, dicts, reqHandlers}
@@ -24,10 +33,11 @@ type Server struct {
 	reqHandlers map[PacketCode]func(req *Packet) (rply *Packet, err error) // map[PacketCode]handler, 0 for default
 }
 
-// listenConnection will listen on a single inbound connection for packets
+// handleConnection will listen on a single inbound connection for packets
 // disconnects on error or unexpected packet length
-func (s *Server) handleConnection(conn net.Conn) {
-	remoteAddr := conn.RemoteAddr().String()
+// calls the handler synchronously and returns it's answer
+func (s *Server) handleConnection(synConn *syncedConn) {
+	remoteAddr := synConn.conn.RemoteAddr().String()
 	var clntID string // IP of the client which should apply special secret or dictionary
 	if idx := strings.Index(remoteAddr, "]:"); idx != -1 {
 		clntID = remoteAddr[1:idx] // ipv6 addr
@@ -36,14 +46,14 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 	for {
 		var b [4096]byte
-		n, err := conn.Read(b[:])
+		n, err := synConn.conn.Read(b[:])
 		if err != nil {
 			log.Printf("error: <%s> when reading packets, disconnecting...", err.Error())
-			conn.Close()
+			synConn.conn.Close()
 			return
 		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
 			log.Printf("error: unexpected packet length, disconnecting...", err.Error())
-			conn.Close()
+			synConn.conn.Close()
 			return
 		}
 		secret, hasKey := s.secrets[clntID]
@@ -54,59 +64,37 @@ func (s *Server) handleConnection(conn net.Conn) {
 		if !hasKey {
 			dict = s.dicts[MetaDefault]
 		}
-		pkt := &Packet{secret: secret, dictionary: dict}
+
+		pkt := &Packet{synConn: synConn, secret: secret, dict: dict}
 		if err = pkt.Decode(b[:n]); err != nil {
 			log.Printf("error: <%s> when decoding packet", err.Error())
 			continue
 		}
+
 		hndlr, hasKey := s.reqHandlers[pkt.Code]
 		var rply *Packet
 		if !hasKey {
 			log.Printf("error: <no handler for packet with code: %d>", pkt.Code)
-			rply = negativeReply(pkt, "no handler!")
+			rply = pkt.NegativeReply("no handler!")
 		} else {
 			var err error
 			if rply, err = hndlr(pkt); err != nil {
-				rply = negativeReply(pkt, err.Error())
+				rply = pkt.NegativeReply(err.Error())
 			}
 		}
+
 		var buf [4096]byte
 		n, err = rply.Encode(buf[:])
 		if err != nil {
 			log.Printf("error: <%s> on reply attempt", err.Error())
 			continue
 		}
-
-		if _, err = conn.Write(buf[:n]); err != nil {
+		synConn.Lock()
+		_, err = synConn.conn.Write(buf[:n])
+		synConn.Unlock()
+		if err != nil {
 			log.Printf("error: <%s> on connection write", err.Error())
 		}
-
-		// execute handler for packet
-		/*
-			ips := pac.Attributes(NASIPAddress)
-
-			if len(ips) != 1 {
-				continue
-			}
-
-			ss := net.IP(ips[0].Value[0:4])
-
-			service, ok := s.services[ss.String()]
-			if !ok {
-				log.Println("recieved request for unknown service: ", ss)
-				continue
-
-				//reject
-			}
-			npac, err := service.Authenticate(pac)
-			if err != nil {
-				return err
-			}
-			err = npac.Send(conn, addr)
-			if err != nil {
-				return err
-			}
-		*/
 	}
 }
 
@@ -121,7 +109,7 @@ func (s *Server) ListenAndServe() error {
 			log.Printf("error: <%s>, when establishing new connection", err.Error())
 			continue
 		}
-		go s.handleConnection(conn)
+		go s.handleConnection(&syncedConn{conn: conn})
 	}
 	return nil
 }
