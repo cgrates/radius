@@ -23,7 +23,6 @@ func TestParseDictAttribute(t *testing.T) {
 	}
 }
 
-// VALUE    Framed-Protocol    PPP    1
 func TestParseDictValue(t *testing.T) {
 	eDV := &dictValue{
 		attributeName:   "Framed-Protocol",
@@ -38,6 +37,24 @@ func TestParseDictValue(t *testing.T) {
 		t.Error("Should have error")
 	}
 	if _, err := parseDictAttribute([]string{"VALUE", "Framed-Protocol", "PPP", "string"}); err == nil {
+		t.Error("Should have error")
+	}
+}
+
+func TestParseDictVendor(t *testing.T) {
+	eDV := &dictVendor{
+		vendorName:   "Cisco",
+		vendorNumber: 9,
+	}
+	if dv, err := parseDictVendor([]string{"VENDOR", "Cisco", "9"}); err != nil {
+		t.Error(err)
+	} else if !reflect.DeepEqual(eDV, dv) {
+		t.Errorf("Expecting: %+v, received: %+v", eDV, dv)
+	}
+	if _, err := parseDictAttribute([]string{"VENDOR"}); err == nil {
+		t.Error("Should have error")
+	}
+	if _, err := parseDictAttribute([]string{"VENDOR", "Cisco", "string"}); err == nil {
 		t.Error("Should have error")
 	}
 }

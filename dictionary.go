@@ -148,6 +148,9 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 			}
 			return err
 		}
+		if strings.HasPrefix(readLine, "#") { // ignore comments
+			continue
+		}
 		flds := strings.Fields(readLine)
 		if len(flds) == 0 {
 			continue
@@ -221,13 +224,25 @@ type dictValue struct {
 	attributeNumber uint8
 }
 
-// input VENDOR vendor-name number
+// input VENDOR vendor-name number [format]
 func parseDictVendor(input []string) (dVndr *dictVendor, err error) {
+	if len(input) < 3 {
+		return nil, errors.New("mandatory information missing")
+	}
+	nr, err := strconv.Atoi(input[2])
+	if err != nil {
+		return nil, err
+	}
+	dVndr = &dictVendor{vendorName: input[1], vendorNumber: uint32(nr)}
+	if len(input) > 3 {
+		dVndr.format = input[3]
+	}
 	return
 }
 
 // dictVendor defines a dictionary mapping for a vendor.
 type dictVendor struct {
 	vendorName   string
-	vendorNumber int
+	vendorNumber uint32
+	format       string
 }
