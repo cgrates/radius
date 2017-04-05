@@ -41,7 +41,7 @@ func NewVSAFromAVP(avp *AVP) (*VSA, error) {
 type VSA struct {
 	Vendor   uint32
 	Number   uint8       // attribute number
-	rawValue []byte      // value as bytes as received over network
+	rawValue []byte      // value as received over network
 	Name     string      // attribute name
 	Type     string      // type of the value helping us to convert to concrete
 	Value    interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
