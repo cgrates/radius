@@ -4,7 +4,9 @@ import (
 	"log"
 	//"os"
 	"bufio"
+	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -178,8 +180,17 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 }
 
 // input: ATTRIBUTE attribute-name number type
-func parseDictAttribute(input []string) (dAttr *dictAttribute, err error) {
-	return
+// input: one line from the reader
+func parseDictAttribute(input []string) (*dictAttribute, error) {
+	if len(input) < 3 {
+		return nil, errors.New("mandatory information missing")
+	}
+	attrNr, err := strconv.Atoi(input[2])
+	if err != nil {
+		return nil, err
+	}
+	return &dictAttribute{attributeName: input[1],
+		attributeNumber: uint8(attrNr), attributeType: input[3]}, nil
 }
 
 // dictionaryAttribute defines a dictionary mapping and type for an attribute.

@@ -10,7 +10,7 @@ type AVP struct {
 	rawValue []byte      // original value as byte
 	Name     string      // attribute name
 	Type     string      // type of the value helping us to convert to concrete
-	Value    interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
+	Value    interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string) or avp.Value.(*VSA))
 }
 
 func (a *AVP) Encode(b []byte) (n int, err error) {
