@@ -182,7 +182,7 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 // input: ATTRIBUTE attribute-name number type
 // input: one line from the reader
 func parseDictAttribute(input []string) (*dictAttribute, error) {
-	if len(input) < 3 {
+	if len(input) < 4 {
 		return nil, errors.New("mandatory information missing")
 	}
 	attrNr, err := strconv.Atoi(input[2])
@@ -201,8 +201,17 @@ type dictAttribute struct {
 }
 
 // input: VALUE attribute-name value-name number
+// VALUE    Framed-Protocol    PPP    1
 func parseDictValue(input []string) (dVal *dictValue, err error) {
-	return
+	if len(input) < 4 {
+		return nil, errors.New("mandatory information missing")
+	}
+	attrNr, err := strconv.Atoi(input[3])
+	if err != nil {
+		return nil, err
+	}
+	return &dictValue{attributeName: input[1], valueName: input[2],
+		attributeNumber: uint8(attrNr)}, nil
 }
 
 // dictionaryValue defines an enumerated value for an attribute.
