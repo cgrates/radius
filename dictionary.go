@@ -20,7 +20,7 @@ const (
 	IncludeFileKeyword = "$INCLUDE"
 )
 
-var RFC2865 = `
+var RFC2865Dict = `
 # Originally copied from FreeRADIUS dictionary
 
 ATTRIBUTE	User-Name		1	string
@@ -85,43 +85,70 @@ ATTRIBUTE	Port-Limit		62	integer
 ATTRIBUTE	Login-LAT-Port		63	integer
 `
 
-func RFC2865Dictionary() (d *Dictionary) {
-	d = NewEmptyDictionary()
+// input: ATTRIBUTE attribute-name number type
+// input: one line from the reader
+func parseDictAttribute(input []string) (*dictAttribute, error) {
+	if len(input) < 4 {
+		return nil, errors.New("mandatory information missing")
+	}
+	attrNr, err := strconv.Atoi(input[2])
+	if err != nil {
+		return nil, err
+	}
+	return &dictAttribute{attributeName: input[1],
+		attributeNumber: uint8(attrNr), attributeType: input[3]}, nil
+}
+
+// dictionaryAttribute defines a dictionary mapping and type for an attribute.
+type dictAttribute struct {
+	attributeName   string
+	attributeNumber uint8
+	attributeType   string
+}
+
+// input: VALUE attribute-name value-name number
+// VALUE    Framed-Protocol    PPP    1
+func parseDictValue(input []string) (dVal *dictValue, err error) {
+	if len(input) < 4 {
+		return nil, errors.New("mandatory information missing")
+	}
+	attrNr, err := strconv.Atoi(input[3])
+	if err != nil {
+		return nil, err
+	}
+	return &dictValue{attributeName: input[1], valueName: input[2],
+		attributeNumber: uint8(attrNr)}, nil
+}
+
+// dictionaryValue defines an enumerated value for an attribute.
+type dictValue struct {
+	attributeName   string
+	valueName       string
+	attributeNumber uint8
+}
+
+// input VENDOR vendor-name number [format]
+func parseDictVendor(input []string) (dVndr *dictVendor, err error) {
+	if len(input) < 3 {
+		return nil, errors.New("mandatory information missing")
+	}
+	nr, err := strconv.Atoi(input[2])
+	if err != nil {
+		return nil, err
+	}
+	dVndr = &dictVendor{vendorName: input[1], vendorNumber: uint32(nr)}
+	if len(input) > 3 {
+		dVndr.format = input[3]
+	}
 	return
 }
 
-/*
-func ParseDictionariesFromFolder(dirPath string) (*Dictionary, error){
-	dict := RFC2865Dictionary()
-	fi, err := os.Stat(dirPath)
-	if err != nil {
-		if strings.HasSuffix(err.Error(), "no such file or directory") {
-			return cfg, nil
-		}
-		return nil, err
-	} else if !fi.IsDir() && cfgDir != utils.CONFIG_DIR { // If config dir defined, needs to exist, not checking for default
-		return nil, fmt.Errorf("Path: %s not a directory.", cfgDir)
-	}
-	if fi.IsDir() {
-		jsonFilesFound := false
-		err = filepath.Walk(cfgDir, func(path string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
-				return nil
-			}
-			cfgFiles, err := filepath.Glob(filepath.Join(path, "*.json"))
-			if err != nil {
-				return err
-			}
-			if cfgFiles == nil { // No need of processing further since there are no config files in the folder
-				return nil
-			}
-			if !jsonFilesFound {
-				jsonFilesFound = true
-			}
-		}
-	}
+// dictVendor defines a dictionary mapping for a vendor.
+type dictVendor struct {
+	vendorName   string
+	vendorNumber uint32
+	format       string
 }
-*/
 
 func NewEmptyDictionary() *Dictionary {
 	return &Dictionary{ac: make(map[uint32]map[uint8]*dictAttribute), an: make(map[uint32]map[string]*dictAttribute),
@@ -218,67 +245,42 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 	return
 }
 
-// input: ATTRIBUTE attribute-name number type
-// input: one line from the reader
-func parseDictAttribute(input []string) (*dictAttribute, error) {
-	if len(input) < 4 {
-		return nil, errors.New("mandatory information missing")
-	}
-	attrNr, err := strconv.Atoi(input[2])
-	if err != nil {
-		return nil, err
-	}
-	return &dictAttribute{attributeName: input[1],
-		attributeNumber: uint8(attrNr), attributeType: input[3]}, nil
-}
-
-// dictionaryAttribute defines a dictionary mapping and type for an attribute.
-type dictAttribute struct {
-	attributeName   string
-	attributeNumber uint8
-	attributeType   string
-}
-
-// input: VALUE attribute-name value-name number
-// VALUE    Framed-Protocol    PPP    1
-func parseDictValue(input []string) (dVal *dictValue, err error) {
-	if len(input) < 4 {
-		return nil, errors.New("mandatory information missing")
-	}
-	attrNr, err := strconv.Atoi(input[3])
-	if err != nil {
-		return nil, err
-	}
-	return &dictValue{attributeName: input[1], valueName: input[2],
-		attributeNumber: uint8(attrNr)}, nil
-}
-
-// dictionaryValue defines an enumerated value for an attribute.
-type dictValue struct {
-	attributeName   string
-	valueName       string
-	attributeNumber uint8
-}
-
-// input VENDOR vendor-name number [format]
-func parseDictVendor(input []string) (dVndr *dictVendor, err error) {
-	if len(input) < 3 {
-		return nil, errors.New("mandatory information missing")
-	}
-	nr, err := strconv.Atoi(input[2])
-	if err != nil {
-		return nil, err
-	}
-	dVndr = &dictVendor{vendorName: input[1], vendorNumber: uint32(nr)}
-	if len(input) > 3 {
-		dVndr.format = input[3]
-	}
+// Dictionary data required in RFC2865
+func RFC2865Dictionary() (d *Dictionary) {
+	d = NewEmptyDictionary()
+	d.ParseFromReader(strings.NewReader(RFC2865Dict))
 	return
 }
 
-// dictVendor defines a dictionary mapping for a vendor.
-type dictVendor struct {
-	vendorName   string
-	vendorNumber uint32
-	format       string
+/*
+func ParseDictionariesFromFolder(dirPath string) (*Dictionary, error){
+	dict := RFC2865Dictionary()
+	fi, err := os.Stat(dirPath)
+	if err != nil {
+		if strings.HasSuffix(err.Error(), "no such file or directory") {
+			return cfg, nil
+		}
+		return nil, err
+	} else if !fi.IsDir() && cfgDir != utils.CONFIG_DIR { // If config dir defined, needs to exist, not checking for default
+		return nil, fmt.Errorf("Path: %s not a directory.", cfgDir)
+	}
+	if fi.IsDir() {
+		jsonFilesFound := false
+		err = filepath.Walk(cfgDir, func(path string, info os.FileInfo, err error) error {
+			if !info.IsDir() {
+				return nil
+			}
+			cfgFiles, err := filepath.Glob(filepath.Join(path, "*.json"))
+			if err != nil {
+				return err
+			}
+			if cfgFiles == nil { // No need of processing further since there are no config files in the folder
+				return nil
+			}
+			if !jsonFilesFound {
+				jsonFilesFound = true
+			}
+		}
+	}
 }
+*/
