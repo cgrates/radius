@@ -176,3 +176,31 @@ END-VENDOR      Cisco
 		t.Errorf("Expecting: %+v, received: %+v", eDict, dict)
 	}
 }
+
+func TestNewDictionaryFromFolderWithRFC2865(t *testing.T) {
+	dict, err := NewDictionaryFromFolderWithRFC2865("dict")
+	if err != nil {
+		t.Error(err)
+	}
+	if len(dict.ac[NoVendor]) != 62 {
+		t.Errorf("Expecting len: 62, received len: %d, items: %+v", len(dict.ac[NoVendor]), dict.ac[NoVendor])
+	}
+	if len(dict.an[NoVendor]) != 62 {
+		t.Errorf("Expecting len: 62, received len: %d, items: %+v", len(dict.an[NoVendor]), dict.an[NoVendor])
+	}
+	if len(dict.ac[9]) != 2 {
+		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.an[9]), dict.an[9])
+	}
+	if len(dict.an[9]) != 2 {
+		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.an[9]), dict.an[9])
+	}
+	if len(dict.vc) != 2 {
+		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.vc), dict.vc)
+	}
+	if len(dict.vn) != 2 {
+		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.vn), dict.vn)
+	}
+	if dict.vndr != 0 {
+		t.Error(dict.vndr)
+	}
+}

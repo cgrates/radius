@@ -1,0 +1,11 @@
+## Sample dictionary file containing few lines of RFC 2867 attributes and 2 vendors
+
+
+# Attributes 
+ATTRIBUTE	Acct-Tunnel-Connection			68	string
+ATTRIBUTE	Acct-Tunnel-Packets-Lost		86	integer
+
+
+# Vendors
+VENDOR    Cisco    9
+VENDOR    Microsoft 311

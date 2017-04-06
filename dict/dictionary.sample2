@@ -1,0 +1,7 @@
+## Sample dictionary file containing few lines of Cisco vendor
+
+
+BEGIN-VENDOR    Cisco
+ATTRIBUTE       Cisco-AVPair    1   string
+ATTRIBUTE       Cisco-NAS-Port  2	string
+END-VENDOR      Cisco

@@ -151,9 +151,20 @@ type dictVendor struct {
 	format       string
 }
 
+// NewEmptyDictionary initializes properly the maps in the Dictionary struct
 func NewEmptyDictionary() *Dictionary {
 	return &Dictionary{ac: make(map[uint32]map[uint8]*dictAttribute), an: make(map[uint32]map[string]*dictAttribute),
 		vc: make(map[uint32]*dictVendor), vn: make(map[string]*dictVendor)}
+}
+
+// NewDictionaryFromFolderWithDefaults parses the folder and returns the Dictionary object
+// Resulting dictionary contains RFC2865 elements
+func NewDictionaryFromFolderWithRFC2865(dirPath string) (*Dictionary, error) {
+	dict := RFC2865Dictionary()
+	if err := dict.parseFromFolder(dirPath); err != nil {
+		return nil, err
+	}
+	return dict, nil
 }
 
 // Dictionary translates between types and human readable attributes
@@ -167,8 +178,8 @@ type Dictionary struct {
 	vndr         uint32                               // active vendor number
 }
 
-// ParseFromReader loops through the lines in the reader, adding info to the Dictionary
-// overwrites previous keys found
+// parseFromReader loops through the lines in the reader, adding info to the Dictionary
+// overwrites previous data
 func (dict *Dictionary) parseFromReader(rdr io.Reader) (err error) {
 	buf := bufio.NewReader(rdr)
 	lnNr := 0
@@ -246,6 +257,7 @@ func (dict *Dictionary) parseFromReader(rdr io.Reader) (err error) {
 	return
 }
 
+// parseFromFolder walks through the folder/subfolders and loads all dictionary.* files it finds
 func (dict *Dictionary) parseFromFolder(dirPath string) (err error) {
 	fi, err := os.Stat(dirPath)
 	if err != nil {
