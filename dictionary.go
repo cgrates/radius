@@ -1,10 +1,10 @@
 package radigo
 
 import (
-	"log"
 	//"os"
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -86,8 +86,7 @@ ATTRIBUTE	Login-LAT-Port		63	integer
 `
 
 func RFC2865Dictionary() (d *Dictionary) {
-	d = &Dictionary{ac: make(map[uint32]map[uint8]*dictAttribute), an: make(map[uint32]map[string]*dictAttribute),
-		vc: make(map[uint32]*dictVendor), vn: make(map[string]*dictVendor)}
+	d = NewEmptyDictionary()
 	return
 }
 
@@ -124,6 +123,11 @@ func ParseDictionariesFromFolder(dirPath string) (*Dictionary, error){
 }
 */
 
+func NewEmptyDictionary() *Dictionary {
+	return &Dictionary{ac: make(map[uint32]map[uint8]*dictAttribute), an: make(map[uint32]map[string]*dictAttribute),
+		vc: make(map[uint32]*dictVendor), vn: make(map[string]*dictVendor)}
+}
+
 // Dictionary translates between types and human readable attributes
 // provides per-client information
 type Dictionary struct {
@@ -132,6 +136,7 @@ type Dictionary struct {
 	an           map[uint32]map[string]*dictAttribute // attach information on vendor/attribute name
 	vc           map[uint32]*dictVendor               // index on vendor number
 	vn           map[string]*dictVendor               // index on vendor name
+	vndr         uint32                               // active vendor number
 }
 
 // ParseFromReader loops through the lines in the reader, adding info to the Dictionary
@@ -159,24 +164,55 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 		case AttributeKeyword:
 			dAttr, err := parseDictAttribute(flds)
 			if err != nil {
-				log.Printf("line: %d error: <%s> parsing dictionary attributes", lnNr)
-				continue
+				return fmt.Errorf("line: %d, <%s>", lnNr, err.Error())
 			}
 			dict.Lock()
-			if _, hasIt := dict.ac[NoVendor]; !hasIt {
-				dict.ac[NoVendor] = make(map[uint8]*dictAttribute)
+			if _, hasIt := dict.ac[dict.vndr]; !hasIt {
+				dict.ac[dict.vndr] = make(map[uint8]*dictAttribute)
 			}
-			dict.ac[NoVendor][dAttr.attributeNumber] = dAttr
-			if _, hasIt := dict.an[NoVendor]; !hasIt {
-				dict.an[NoVendor] = make(map[string]*dictAttribute)
+			dict.ac[dict.vndr][dAttr.attributeNumber] = dAttr
+			if _, hasIt := dict.an[dict.vndr]; !hasIt {
+				dict.an[dict.vndr] = make(map[string]*dictAttribute)
 			}
-			dict.an[NoVendor][dAttr.attributeName] = dAttr
+			dict.an[dict.vndr][dAttr.attributeName] = dAttr
 			dict.Unlock()
-		case ValueKeyword:
-			//dVal, err := parseDictValue(flds)
+		case ValueKeyword: // ToDo: finds use for this
 		case VendorKeyword:
-			//dVndr, err := parseDictVendor(flds)
-		case BeginVendorKeyword, EndVendorKeyword, IncludeFileKeyword:
+			dVndr, err := parseDictVendor(flds)
+			if err != nil {
+				return fmt.Errorf("line: %d, <%s>", lnNr, err.Error())
+			}
+			dict.Lock()
+			dict.vc[dVndr.vendorNumber] = dVndr
+			dict.vn[dVndr.vendorName] = dVndr
+			dict.Unlock()
+		case BeginVendorKeyword:
+			if len(flds) < 2 {
+				return fmt.Errorf("line: %d, <mandatory information missing>", lnNr)
+			}
+			dict.Lock()
+			if dVndr, has := dict.vn[flds[1]]; !has {
+				return fmt.Errorf("line: %d, <unknown vendor name: %s>", lnNr, flds[1])
+			} else {
+				dict.vndr = dVndr.vendorNumber // activate a new vendor for indexing
+			}
+			dict.Unlock()
+		case EndVendorKeyword:
+			if len(flds) < 2 {
+				return fmt.Errorf("line: %d, <mandatory information missing>", lnNr)
+			}
+			dict.Lock()
+			if dVndr, has := dict.vn[flds[1]]; !has {
+				return fmt.Errorf("line: %d, <unknown vendor name: %s>", lnNr, flds[1])
+			} else if dict.vndr != dVndr.vendorNumber {
+				return fmt.Errorf("line: %d, <no BEGIN_VENDOR for vendor name: %s>", lnNr, flds[1])
+			} else {
+				dict.vndr = NoVendor
+			}
+			dict.Unlock()
+		case IncludeFileKeyword: // ToDo
+		default:
+			return fmt.Errorf("line: %d, <unsupported keyword: %s>", lnNr, flds[0])
 		}
 	}
 	return
