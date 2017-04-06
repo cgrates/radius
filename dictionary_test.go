@@ -169,7 +169,7 @@ END-VENDOR      Cisco
 		vndr: 0,
 	}
 	dict := NewEmptyDictionary()
-	if err := dict.ParseFromReader(strings.NewReader(freeRADIUSDocDictSample)); err != nil {
+	if err := dict.parseFromReader(strings.NewReader(freeRADIUSDocDictSample)); err != nil {
 		t.Error(err)
 	}
 	if !reflect.DeepEqual(eDict, dict) {

@@ -1,11 +1,12 @@
 package radigo
 
 import (
-	//"os"
 	"bufio"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -168,7 +169,7 @@ type Dictionary struct {
 
 // ParseFromReader loops through the lines in the reader, adding info to the Dictionary
 // overwrites previous keys found
-func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
+func (dict *Dictionary) parseFromReader(rdr io.Reader) (err error) {
 	buf := bufio.NewReader(rdr)
 	lnNr := 0
 	for {
@@ -245,42 +246,46 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 	return
 }
 
+func (dict *Dictionary) parseFromFolder(dirPath string) (err error) {
+	fi, err := os.Stat(dirPath)
+	if err != nil {
+		return err
+	} else if !fi.IsDir() {
+		return fmt.Errorf("path: %s not a directory.", dirPath)
+	}
+	var fileFound bool
+	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			return nil
+		}
+		dictFiles, err := filepath.Glob(filepath.Join(path, "dictionary.*"))
+		if err != nil {
+			return err
+		}
+		if dictFiles == nil { // No need of processing further since there are no config files in the folder
+			return nil
+		}
+		fileFound = true
+		for _, dictFilePath := range dictFiles {
+			if file, err := os.Open(dictFilePath); err != nil {
+				return err
+			} else if err = dict.parseFromReader(file); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	} else if !fileFound {
+		return fmt.Errorf("no dictionary file on path <%s>", dirPath)
+	}
+	return nil
+}
+
 // Dictionary data required in RFC2865
 func RFC2865Dictionary() (d *Dictionary) {
 	d = NewEmptyDictionary()
-	d.ParseFromReader(strings.NewReader(RFC2865Dict))
+	d.parseFromReader(strings.NewReader(RFC2865Dict))
 	return
 }
-
-/*
-func ParseDictionariesFromFolder(dirPath string) (*Dictionary, error){
-	dict := RFC2865Dictionary()
-	fi, err := os.Stat(dirPath)
-	if err != nil {
-		if strings.HasSuffix(err.Error(), "no such file or directory") {
-			return cfg, nil
-		}
-		return nil, err
-	} else if !fi.IsDir() && cfgDir != utils.CONFIG_DIR { // If config dir defined, needs to exist, not checking for default
-		return nil, fmt.Errorf("Path: %s not a directory.", cfgDir)
-	}
-	if fi.IsDir() {
-		jsonFilesFound := false
-		err = filepath.Walk(cfgDir, func(path string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
-				return nil
-			}
-			cfgFiles, err := filepath.Glob(filepath.Join(path, "*.json"))
-			if err != nil {
-				return err
-			}
-			if cfgFiles == nil { // No need of processing further since there are no config files in the folder
-				return nil
-			}
-			if !jsonFilesFound {
-				jsonFilesFound = true
-			}
-		}
-	}
-}
-*/
