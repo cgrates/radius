@@ -23,32 +23,32 @@ func TestPacketDecode(t *testing.T) {
 		AVPs: []*AVP{
 			&AVP{
 				Number:   uint8(1),                                   // User-Name
-				rawValue: []byte{0x66, 0x6c, 0x6f, 0x70, 0x73, 0x79}, // flopsy
+				RawValue: []byte{0x66, 0x6c, 0x6f, 0x70, 0x73, 0x79}, // flopsy
 			},
 			&AVP{
 				Number: uint8(3), // CHAPPassword
-				rawValue: []byte{0x16, 0xe9,
+				RawValue: []byte{0x16, 0xe9,
 					0x75, 0x57, 0xc3, 0x16, 0x18, 0x58, 0x95, 0xf2, 0x93, 0xff, 0x63, 0x44, 0x07, 0x72, 0x75}, // 3
 			},
 			&AVP{
 				Number:   uint8(4),                       // NASIPAddress
-				rawValue: []byte{0xc0, 0xa8, 0x01, 0x10}, // 192.168.1.16
+				RawValue: []byte{0xc0, 0xa8, 0x01, 0x10}, // 192.168.1.16
 			},
 			&AVP{
 				Number:   uint8(5),                       // NASPort
-				rawValue: []byte{0x00, 0x00, 0x00, 0x14}, // 20
+				RawValue: []byte{0x00, 0x00, 0x00, 0x14}, // 20
 			},
 			&AVP{
 				Number:   uint8(6),                       // ServiceType
-				rawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 2
+				RawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 2
 			},
 			&AVP{
 				Number:   uint8(7),                       // FramedProtocol
-				rawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
+				RawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
 			},
 			&AVP{
 				Number: VendorSpecific, // VSA
-				rawValue: []byte{0x00, 0x00, 0x00, 0x09,
+				RawValue: []byte{0x00, 0x00, 0x00, 0x09,
 					0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67}, // VendorID: 9(Cisco), VSA-type: 23(Remote-Gateway-ID), VSA-Data: CGRateS.org
 			},
 		},
@@ -72,31 +72,31 @@ func TestPacketEncode(t *testing.T) {
 		AVPs: []*AVP{
 			&AVP{
 				Number:   6,                              // ServiceType
-				rawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 2
+				RawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 2
 			},
 			&AVP{
 				Number:   7,                              // FramedProtocol
-				rawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
+				RawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
 			},
 			&AVP{
 				Number:   8,                              // FramedIPAddress
-				rawValue: []byte{0xff, 0xff, 0xff, 0xfe}, // 255.255.255.254
+				RawValue: []byte{0xff, 0xff, 0xff, 0xfe}, // 255.255.255.254
 			},
 			&AVP{
 				Number:   10,                             // FramedRouting
-				rawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 0
+				RawValue: []byte{0x00, 0x00, 0x00, 0x02}, // 0
 			},
 			&AVP{
 				Number:   13,                             // FramedCompression
-				rawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
+				RawValue: []byte{0x00, 0x00, 0x00, 0x01}, // 1
 			},
 			&AVP{
 				Number:   12,                             // FramedMTU
-				rawValue: []byte{0x00, 0x00, 0x05, 0xdc}, // 1500
+				RawValue: []byte{0x00, 0x00, 0x05, 0xdc}, // 1500
 			},
 			&AVP{
 				Number: 26, // VSA
-				rawValue: []byte{0x00, 0x00, 0x00, 0x09,
+				RawValue: []byte{0x00, 0x00, 0x00, 0x09,
 					0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67}, // VendorID: 9(Cisco), VSA-type: 23(Remote-Gateway-ID), VSA-Data: CGRateS.org
 			},
 		},

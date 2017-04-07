@@ -107,7 +107,7 @@ func (p *Packet) Decode(buf []byte) error {
 		if int(length) > len(b) {
 			return errors.New("invalid length")
 		}
-		avp.rawValue = append(avp.rawValue, b[2:length]...)
+		avp.RawValue = append(avp.RawValue, b[2:length]...)
 		p.AVPs = append(p.AVPs, avp)
 		b = b[length:]
 	}
@@ -141,10 +141,10 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 	switch p.Code {
 	case AccessRequest:
 		rply.Code = AccessReject
-		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, rawValue: []byte(errMsg)})
+		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, RawValue: []byte(errMsg)})
 	case AccountingRequest:
 		rply.Code = AccountingResponse
-		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, rawValue: []byte(errMsg)})
+		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, RawValue: []byte(errMsg)})
 	}
 	return
 }

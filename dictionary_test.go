@@ -300,7 +300,7 @@ func TestDictionaryAttributeWith(t *testing.T) {
 		AttributeNumber: 2,
 		AttributeType:   "string",
 	}
-	if da := dict.AttributeWithName("Cisco-NAS-Port", ""); da == nil {
+	if da := dict.AttributeWithName("Cisco-NAS-Port", "Cisco"); da == nil {
 		t.Error("no attribute found")
 	} else if !reflect.DeepEqual(eDA, da) {
 		t.Errorf("Expecting: %+v, received: %+v", eDA, da)
