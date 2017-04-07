@@ -6,20 +6,20 @@ import (
 	"testing"
 )
 
-func TestParseDictAttribute(t *testing.T) {
-	eDA := &dictAttribute{
-		attributeName:   "User-Name",
-		attributeNumber: 1,
-		attributeType:   "string"}
-	if da, err := parseDictAttribute([]string{"ATTRIBUTE", "User-Name", "1", "string"}); err != nil {
+func TestParseDictionaryAttribute(t *testing.T) {
+	eDA := &DictionaryAttribute{
+		AttributeName:   "User-Name",
+		AttributeNumber: 1,
+		AttributeType:   "string"}
+	if da, err := parseDictionaryAttribute([]string{"ATTRIBUTE", "User-Name", "1", "string"}); err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(eDA, da) {
 		t.Errorf("Expecting: %+v, received: %+v", eDA, da)
 	}
-	if _, err := parseDictAttribute([]string{"ATTRIBUTE"}); err == nil {
+	if _, err := parseDictionaryAttribute([]string{"ATTRIBUTE"}); err == nil {
 		t.Error("Should have error")
 	}
-	if _, err := parseDictAttribute([]string{"ATTRIBUTE", "User-Name", "string", "string"}); err == nil {
+	if _, err := parseDictionaryAttribute([]string{"ATTRIBUTE", "User-Name", "string", "string"}); err == nil {
 		t.Error("Should have error")
 	}
 }
@@ -34,10 +34,10 @@ func TestParseDictValue(t *testing.T) {
 	} else if !reflect.DeepEqual(eDV, dv) {
 		t.Errorf("Expecting: %+v, received: %+v", eDV, dv)
 	}
-	if _, err := parseDictAttribute([]string{"VALUE"}); err == nil {
+	if _, err := parseDictionaryAttribute([]string{"VALUE"}); err == nil {
 		t.Error("Should have error")
 	}
-	if _, err := parseDictAttribute([]string{"VALUE", "Framed-Protocol", "PPP", "string"}); err == nil {
+	if _, err := parseDictionaryAttribute([]string{"VALUE", "Framed-Protocol", "PPP", "string"}); err == nil {
 		t.Error("Should have error")
 	}
 }
@@ -52,10 +52,10 @@ func TestParseDictVendor(t *testing.T) {
 	} else if !reflect.DeepEqual(eDV, dv) {
 		t.Errorf("Expecting: %+v, received: %+v", eDV, dv)
 	}
-	if _, err := parseDictAttribute([]string{"VENDOR"}); err == nil {
+	if _, err := parseDictionaryAttribute([]string{"VENDOR"}); err == nil {
 		t.Error("Should have error")
 	}
-	if _, err := parseDictAttribute([]string{"VENDOR", "Cisco", "string"}); err == nil {
+	if _, err := parseDictionaryAttribute([]string{"VENDOR", "Cisco", "string"}); err == nil {
 		t.Error("Should have error")
 	}
 	eDV = &dictVendor{
@@ -94,55 +94,55 @@ ATTRIBUTE       Cisco-NAS-Port  2	string
 END-VENDOR      Cisco
 `
 	eDict := &Dictionary{
-		ac: map[uint32]map[uint8]*dictAttribute{
-			NoVendor: map[uint8]*dictAttribute{
-				1: &dictAttribute{
-					attributeName:   "User-Name",
-					attributeNumber: 1,
-					attributeType:   "string",
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: map[uint8]*DictionaryAttribute{
+				1: &DictionaryAttribute{
+					AttributeName:   "User-Name",
+					AttributeNumber: 1,
+					AttributeType:   "string",
 				},
-				2: &dictAttribute{
-					attributeName:   "Password",
-					attributeNumber: 2,
-					attributeType:   "string",
+				2: &DictionaryAttribute{
+					AttributeName:   "Password",
+					AttributeNumber: 2,
+					AttributeType:   "string",
 				},
 			},
-			9: map[uint8]*dictAttribute{
-				1: &dictAttribute{
-					attributeName:   "Cisco-AVPair",
-					attributeNumber: 1,
-					attributeType:   "string",
+			9: map[uint8]*DictionaryAttribute{
+				1: &DictionaryAttribute{
+					AttributeName:   "Cisco-AVPair",
+					AttributeNumber: 1,
+					AttributeType:   "string",
 				},
-				2: &dictAttribute{
-					attributeName:   "Cisco-NAS-Port",
-					attributeNumber: 2,
-					attributeType:   "string",
+				2: &DictionaryAttribute{
+					AttributeName:   "Cisco-NAS-Port",
+					AttributeNumber: 2,
+					AttributeType:   "string",
 				},
 			},
 		},
-		an: map[uint32]map[string]*dictAttribute{
-			NoVendor: map[string]*dictAttribute{
-				"User-Name": &dictAttribute{
-					attributeName:   "User-Name",
-					attributeNumber: 1,
-					attributeType:   "string",
+		an: map[uint32]map[string]*DictionaryAttribute{
+			NoVendor: map[string]*DictionaryAttribute{
+				"User-Name": &DictionaryAttribute{
+					AttributeName:   "User-Name",
+					AttributeNumber: 1,
+					AttributeType:   "string",
 				},
-				"Password": &dictAttribute{
-					attributeName:   "Password",
-					attributeNumber: 2,
-					attributeType:   "string",
+				"Password": &DictionaryAttribute{
+					AttributeName:   "Password",
+					AttributeNumber: 2,
+					AttributeType:   "string",
 				},
 			},
-			9: map[string]*dictAttribute{
-				"Cisco-AVPair": &dictAttribute{
-					attributeName:   "Cisco-AVPair",
-					attributeNumber: 1,
-					attributeType:   "string",
+			9: map[string]*DictionaryAttribute{
+				"Cisco-AVPair": &DictionaryAttribute{
+					AttributeName:   "Cisco-AVPair",
+					AttributeNumber: 1,
+					AttributeType:   "string",
 				},
-				"Cisco-NAS-Port": &dictAttribute{
-					attributeName:   "Cisco-NAS-Port",
-					attributeNumber: 2,
-					attributeType:   "string",
+				"Cisco-NAS-Port": &DictionaryAttribute{
+					AttributeName:   "Cisco-NAS-Port",
+					AttributeNumber: 2,
+					AttributeType:   "string",
 				},
 			},
 		},

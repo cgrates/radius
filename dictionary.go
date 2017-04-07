@@ -88,7 +88,7 @@ ATTRIBUTE	Login-LAT-Port		63	integer
 
 // input: ATTRIBUTE attribute-name number type
 // input: one line from the reader
-func parseDictAttribute(input []string) (*dictAttribute, error) {
+func parseDictionaryAttribute(input []string) (*DictionaryAttribute, error) {
 	if len(input) < 4 {
 		return nil, errors.New("mandatory information missing")
 	}
@@ -96,15 +96,15 @@ func parseDictAttribute(input []string) (*dictAttribute, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &dictAttribute{attributeName: input[1],
-		attributeNumber: uint8(attrNr), attributeType: input[3]}, nil
+	return &DictionaryAttribute{AttributeName: input[1],
+		AttributeNumber: uint8(attrNr), AttributeType: input[3]}, nil
 }
 
 // dictionaryAttribute defines a dictionary mapping and type for an attribute.
-type dictAttribute struct {
-	attributeName   string
-	attributeNumber uint8
-	attributeType   string
+type DictionaryAttribute struct {
+	AttributeName   string
+	AttributeNumber uint8
+	AttributeType   string
 }
 
 // input: VALUE attribute-name value-name number
@@ -153,7 +153,7 @@ type dictVendor struct {
 
 // NewEmptyDictionary initializes properly the maps in the Dictionary struct
 func NewEmptyDictionary() *Dictionary {
-	return &Dictionary{ac: make(map[uint32]map[uint8]*dictAttribute), an: make(map[uint32]map[string]*dictAttribute),
+	return &Dictionary{ac: make(map[uint32]map[uint8]*DictionaryAttribute), an: make(map[uint32]map[string]*DictionaryAttribute),
 		vc: make(map[uint32]*dictVendor), vn: make(map[string]*dictVendor)}
 }
 
@@ -161,7 +161,7 @@ func NewEmptyDictionary() *Dictionary {
 // Resulting dictionary contains RFC2865 elements
 func NewDictionaryFromFolderWithRFC2865(dirPath string) (*Dictionary, error) {
 	dict := RFC2865Dictionary()
-	if err := dict.parseFromFolder(dirPath); err != nil {
+	if err := dict.ParseFromFolder(dirPath); err != nil {
 		return nil, err
 	}
 	return dict, nil
@@ -170,12 +170,12 @@ func NewDictionaryFromFolderWithRFC2865(dirPath string) (*Dictionary, error) {
 // Dictionary translates between types and human readable attributes
 // provides per-client information
 type Dictionary struct {
-	sync.RWMutex                                      // locks the Dictionary so we can update it on run-time
-	ac           map[uint32]map[uint8]*dictAttribute  // attach information on vendor/attribute number
-	an           map[uint32]map[string]*dictAttribute // attach information on vendor/attribute name
-	vc           map[uint32]*dictVendor               // index on vendor number
-	vn           map[string]*dictVendor               // index on vendor name
-	vndr         uint32                               // active vendor number
+	sync.RWMutex                                            // locks the Dictionary so we can update it on run-time
+	ac           map[uint32]map[uint8]*DictionaryAttribute  // attach information on vendor/attribute number
+	an           map[uint32]map[string]*DictionaryAttribute // attach information on vendor/attribute name
+	vc           map[uint32]*dictVendor                     // index on vendor number
+	vn           map[string]*dictVendor                     // index on vendor name
+	vndr         uint32                                     // active vendor number
 }
 
 // parseFromReader loops through the lines in the reader, adding info to the Dictionary
@@ -201,19 +201,19 @@ func (dict *Dictionary) parseFromReader(rdr io.Reader) (err error) {
 		}
 		switch flds[0] {
 		case AttributeKeyword:
-			dAttr, err := parseDictAttribute(flds)
+			dAttr, err := parseDictionaryAttribute(flds)
 			if err != nil {
 				return fmt.Errorf("line: %d, <%s>", lnNr, err.Error())
 			}
 			dict.Lock()
 			if _, hasIt := dict.ac[dict.vndr]; !hasIt {
-				dict.ac[dict.vndr] = make(map[uint8]*dictAttribute)
+				dict.ac[dict.vndr] = make(map[uint8]*DictionaryAttribute)
 			}
-			dict.ac[dict.vndr][dAttr.attributeNumber] = dAttr
+			dict.ac[dict.vndr][dAttr.AttributeNumber] = dAttr
 			if _, hasIt := dict.an[dict.vndr]; !hasIt {
-				dict.an[dict.vndr] = make(map[string]*dictAttribute)
+				dict.an[dict.vndr] = make(map[string]*DictionaryAttribute)
 			}
-			dict.an[dict.vndr][dAttr.attributeName] = dAttr
+			dict.an[dict.vndr][dAttr.AttributeName] = dAttr
 			dict.Unlock()
 		case ValueKeyword: // ToDo: finds use for this
 		case VendorKeyword:
@@ -258,7 +258,7 @@ func (dict *Dictionary) parseFromReader(rdr io.Reader) (err error) {
 }
 
 // parseFromFolder walks through the folder/subfolders and loads all dictionary.* files it finds
-func (dict *Dictionary) parseFromFolder(dirPath string) (err error) {
+func (dict *Dictionary) ParseFromFolder(dirPath string) (err error) {
 	fi, err := os.Stat(dirPath)
 	if err != nil {
 		return err
