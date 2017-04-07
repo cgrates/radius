@@ -120,8 +120,8 @@ END-VENDOR      Cisco
 				},
 			},
 		},
-		an: map[uint32]map[string]*DictionaryAttribute{
-			NoVendor: map[string]*DictionaryAttribute{
+		an: map[string]map[string]*DictionaryAttribute{
+			"": map[string]*DictionaryAttribute{
 				"User-Name": &DictionaryAttribute{
 					AttributeName:   "User-Name",
 					AttributeNumber: 1,
@@ -133,7 +133,7 @@ END-VENDOR      Cisco
 					AttributeType:   "string",
 				},
 			},
-			9: map[string]*DictionaryAttribute{
+			"Cisco": map[string]*DictionaryAttribute{
 				"Cisco-AVPair": &DictionaryAttribute{
 					AttributeName:   "Cisco-AVPair",
 					AttributeNumber: 1,
@@ -166,7 +166,7 @@ END-VENDOR      Cisco
 				vendorNumber: 311,
 			},
 		},
-		vndr: 0,
+		vndr: new(dictVendor),
 	}
 	dict := NewEmptyDictionary()
 	if err := dict.parseFromReader(strings.NewReader(freeRADIUSDocDictSample)); err != nil {
@@ -174,6 +174,136 @@ END-VENDOR      Cisco
 	}
 	if !reflect.DeepEqual(eDict, dict) {
 		t.Errorf("Expecting: %+v, received: %+v", eDict, dict)
+	}
+}
+
+func TestDictionaryAttributeWith(t *testing.T) {
+	dict := &Dictionary{
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: map[uint8]*DictionaryAttribute{
+				1: &DictionaryAttribute{
+					AttributeName:   "User-Name",
+					AttributeNumber: 1,
+					AttributeType:   "string",
+				},
+				2: &DictionaryAttribute{
+					AttributeName:   "Password",
+					AttributeNumber: 2,
+					AttributeType:   "string",
+				},
+			},
+			9: map[uint8]*DictionaryAttribute{
+				1: &DictionaryAttribute{
+					AttributeName:   "Cisco-AVPair",
+					AttributeNumber: 1,
+					AttributeType:   "string",
+				},
+				2: &DictionaryAttribute{
+					AttributeName:   "Cisco-NAS-Port",
+					AttributeNumber: 2,
+					AttributeType:   "string",
+				},
+			},
+		},
+		an: map[string]map[string]*DictionaryAttribute{
+			"": map[string]*DictionaryAttribute{
+				"User-Name": &DictionaryAttribute{
+					AttributeName:   "User-Name",
+					AttributeNumber: 1,
+					AttributeType:   "string",
+				},
+				"Password": &DictionaryAttribute{
+					AttributeName:   "Password",
+					AttributeNumber: 2,
+					AttributeType:   "string",
+				},
+			},
+			"Cisco": map[string]*DictionaryAttribute{
+				"Cisco-AVPair": &DictionaryAttribute{
+					AttributeName:   "Cisco-AVPair",
+					AttributeNumber: 1,
+					AttributeType:   "string",
+				},
+				"Cisco-NAS-Port": &DictionaryAttribute{
+					AttributeName:   "Cisco-NAS-Port",
+					AttributeNumber: 2,
+					AttributeType:   "string",
+				},
+			},
+		},
+		vc: map[uint32]*dictVendor{
+			9: &dictVendor{
+				vendorName:   "Cisco",
+				vendorNumber: 9,
+			},
+			311: &dictVendor{
+				vendorName:   "Microsoft",
+				vendorNumber: 311,
+			},
+		},
+		vn: map[string]*dictVendor{
+			"Cisco": &dictVendor{
+				vendorName:   "Cisco",
+				vendorNumber: 9,
+			},
+			"Microsoft": &dictVendor{
+				vendorName:   "Microsoft",
+				vendorNumber: 311,
+			},
+		},
+		vndr: new(dictVendor),
+	}
+	eDA := &DictionaryAttribute{
+		AttributeName:   "User-Name",
+		AttributeNumber: 1,
+		AttributeType:   "string",
+	}
+	if da := dict.AttributeWithNumber(1, 0); da == nil {
+		t.Error("no attribute found")
+	} else if !reflect.DeepEqual(eDA, da) {
+		t.Errorf("Expecting: %+v, received: %+v", eDA, da)
+	}
+	if da := dict.AttributeWithNumber(10, 0); da != nil {
+		t.Error("should find no attribute")
+	}
+	if da := dict.AttributeWithNumber(10, 1); da != nil {
+		t.Error("should find no attribute")
+	}
+	eDA = &DictionaryAttribute{
+		AttributeName:   "Cisco-AVPair",
+		AttributeNumber: 1,
+		AttributeType:   "string",
+	}
+	if da := dict.AttributeWithNumber(1, 9); da == nil {
+		t.Error("no attribute found")
+	} else if !reflect.DeepEqual(eDA, da) {
+		t.Errorf("Expecting: %+v, received: %+v", eDA, da)
+	}
+	eDA = &DictionaryAttribute{
+		AttributeName:   "Password",
+		AttributeNumber: 2,
+		AttributeType:   "string",
+	}
+	if da := dict.AttributeWithName("Password", ""); da == nil {
+		t.Error("no attribute found")
+	} else if !reflect.DeepEqual(eDA, da) {
+		t.Errorf("Expecting: %+v, received: %+v", eDA, da)
+	}
+	if da := dict.AttributeWithName("NonExistent", ""); da != nil {
+		t.Error("should find no attribute")
+	}
+	if da := dict.AttributeWithName("Password", "NonExistent"); da != nil {
+		t.Error("should find no attribute")
+	}
+	eDA = &DictionaryAttribute{
+		AttributeName:   "Cisco-NAS-Port",
+		AttributeNumber: 2,
+		AttributeType:   "string",
+	}
+	if da := dict.AttributeWithName("Cisco-NAS-Port", ""); da == nil {
+		t.Error("no attribute found")
+	} else if !reflect.DeepEqual(eDA, da) {
+		t.Errorf("Expecting: %+v, received: %+v", eDA, da)
 	}
 }
 
@@ -185,14 +315,14 @@ func TestNewDictionaryFromFolderWithRFC2865(t *testing.T) {
 	if len(dict.ac[NoVendor]) != 62 {
 		t.Errorf("Expecting len: 62, received len: %d, items: %+v", len(dict.ac[NoVendor]), dict.ac[NoVendor])
 	}
-	if len(dict.an[NoVendor]) != 62 {
-		t.Errorf("Expecting len: 62, received len: %d, items: %+v", len(dict.an[NoVendor]), dict.an[NoVendor])
+	if len(dict.an[""]) != 62 {
+		t.Errorf("Expecting len: 62, received len: %d, items: %+v", len(dict.an[""]), dict.an[""])
 	}
 	if len(dict.ac[9]) != 2 {
-		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.an[9]), dict.an[9])
+		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.ac[9]), dict.ac[9])
 	}
-	if len(dict.an[9]) != 2 {
-		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.an[9]), dict.an[9])
+	if len(dict.an["Cisco"]) != 2 {
+		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.an["Cisco"]), dict.an["Cisco"])
 	}
 	if len(dict.vc) != 2 {
 		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.vc), dict.vc)
@@ -200,7 +330,7 @@ func TestNewDictionaryFromFolderWithRFC2865(t *testing.T) {
 	if len(dict.vn) != 2 {
 		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.vn), dict.vn)
 	}
-	if dict.vndr != 0 {
+	if dict.vndr.vendorNumber != 0 {
 		t.Error(dict.vndr)
 	}
 }
