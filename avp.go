@@ -113,3 +113,47 @@ func decodeAVPValue(valType string, rawValue []byte) (interface{}, error) {
 		return rawValue, errUnsupportedAttributeType
 	}
 }
+
+// interfaceToBytes converts between concrete Go value in AVP into []byte stream ready to be sent over network
+func interfaceToBytes(valType string, val interface{}) ([]byte, error) {
+	switch valType {
+	case textVal, stringVal:
+		strVal, ok := val.(string)
+		if !ok {
+			return nil, errors.New("cannot cast to string")
+		}
+		return []byte(strVal), nil
+	case integerVal:
+		intVal, ok := val.(uint32)
+		if !ok {
+			return nil, errors.New("cannot cast to uint32")
+		}
+		rawVal := make([]byte, 4)
+		binary.BigEndian.PutUint32(rawVal, intVal)
+		return rawVal, nil
+	case ipaddrVal, addressVal:
+		ipVal, ok := val.(net.IP)
+		if !ok {
+			return nil, errors.New("cannot cast to net.IP")
+		}
+		ipVal = ipVal.To4()
+		if ipVal == nil {
+			return nil, errors.New("cannot enforce IPv4")
+		}
+		return []byte(ipVal), nil
+	case timeVal:
+		tmstmpVal, ok := val.(time.Time)
+		if !ok {
+			return nil, errors.New("cannot cast to time.Time")
+		}
+		rawVal := make([]byte, 4)
+		binary.BigEndian.PutUint32(rawVal, uint32(tmstmpVal.Unix()))
+		return rawVal, nil
+	default:
+		rawVal, ok := val.([]byte)
+		if !ok {
+			return nil, errors.New("cannot cast unknown value to []byte")
+		}
+		return rawVal, nil
+	}
+}
