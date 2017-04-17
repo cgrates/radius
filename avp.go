@@ -3,9 +3,16 @@ package radigo
 import (
 	"encoding/binary"
 	"errors"
+	"net"
+	"sync"
+	"time"
+	"unicode/utf8"
 )
 
+var errUnsupportedAttributeType = errors.New("unsupported attribute type")
+
 type AVP struct {
+	sync.RWMutex
 	Number   uint8       // attribute number
 	RawValue []byte      // original value as byte
 	Name     string      // attribute name
@@ -22,6 +29,30 @@ func (a *AVP) Encode(b []byte) (n int, err error) {
 	b[1] = uint8(fullLen)
 	copy(b[2:], a.RawValue)
 	return fullLen, err
+}
+
+// SetValue populates Value with the right interface value
+// abandons in case of Value already set
+func (a *AVP) SetValue(da *DictionaryAttribute) (err error) {
+	if a.Name != "" { // already set
+		return
+	}
+	a.Lock()
+	defer a.Unlock()
+	if val, err := decodeAVPValue(da.AttributeType, a.RawValue); err != nil {
+		if err == errUnsupportedAttributeType {
+			a.Name = err.Error()
+			a.Type = da.AttributeType
+			a.Value = val
+		} else {
+			return err
+		}
+	} else {
+		a.Name = da.AttributeName
+		a.Type = da.AttributeType
+		a.Value = val
+	}
+	return
 }
 
 func NewVSAFromAVP(avp *AVP) (*VSA, error) {
@@ -56,7 +87,29 @@ func (vsa *VSA) AVP() *AVP {
 	vsa_value[4] = uint8(vsa.Number)
 	vsa_value[5] = uint8(vsa_len + 2)
 	copy(vsa_value[6:], vsa.RawValue)
-
 	avp := &AVP{Number: VendorSpecific, RawValue: vsa_value}
 	return avp
+}
+
+// decodeAVPValue converts raw bytes received over the network into concrete Go datatype
+func decodeAVPValue(valType string, rawValue []byte) (interface{}, error) {
+	switch valType {
+	case textVal:
+		if !utf8.Valid(rawValue) {
+			return nil, errors.New("not valid UTF-8")
+		}
+		return string(rawValue), nil
+	case stringVal:
+		return string(rawValue), nil
+	case integerVal:
+		return binary.BigEndian.Uint32(rawValue), nil
+	case ipaddrVal, addressVal:
+		//v := make([]byte, len(rawValue))
+		//copy(v, rawValue)
+		return net.IP(rawValue), nil
+	case timeVal:
+		return time.Unix(int64(binary.BigEndian.Uint32(rawValue)), 0), nil
+	default: // unknown value, will be decoded upstream most probably
+		return rawValue, errUnsupportedAttributeType
+	}
 }

@@ -19,6 +19,14 @@ const (
 	BeginVendorKeyword = "BEGIN-VENDOR"
 	EndVendorKeyword   = "END-VENDOR"
 	IncludeFileKeyword = "$INCLUDE"
+	// rfc2865 value formats
+	textVal    = "text"
+	stringVal  = "string"
+	addressVal = "address"
+	integerVal = "integer"
+	timeVal    = "time"
+	ipaddrVal  = "ipaddr"
+	unknownVal = "unknown"
 )
 
 var RFC2865Dict = `
