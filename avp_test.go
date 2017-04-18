@@ -81,3 +81,20 @@ func TestAVPSetValue(t *testing.T) {
 		t.Errorf("Expecting: %+v, received: %+v", eAvp, avp)
 	}
 }
+
+func TestIfaceToBytes(t *testing.T) {
+	ip := net.ParseIP("192.168.1.16")
+	eBts := []byte{0xc0, 0xa8, 0x01, 0x10}
+	if bts, err := ifaceToBytes(addressVal, ip); err != nil {
+		t.Error(err)
+	} else if !reflect.DeepEqual(eBts, bts) {
+		t.Errorf("Expecting: %+v, received: %+v", eBts, bts)
+	}
+	cgr := "CGRateS.org"
+	eBts = []byte{0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67}
+	if bts, err := ifaceToBytes(stringVal, cgr); err != nil {
+		t.Error(err)
+	} else if !reflect.DeepEqual(eBts, bts) {
+		t.Errorf("Expecting: %+v, received: %+v", eBts, bts)
+	}
+}

@@ -114,8 +114,8 @@ func decodeAVPValue(valType string, rawValue []byte) (interface{}, error) {
 	}
 }
 
-// interfaceToBytes converts between concrete Go value in AVP into []byte stream ready to be sent over network
-func interfaceToBytes(valType string, val interface{}) ([]byte, error) {
+// ifaceToBytes converts the concrete Go value in AVP into []byte stream ready to be sent over network
+func ifaceToBytes(valType string, val interface{}) ([]byte, error) {
 	switch valType {
 	case textVal, stringVal:
 		strVal, ok := val.(string)
