@@ -24,10 +24,13 @@ type packetReplyHandler struct {
 }
 
 // NewClient creates a new client and connects it to the address
-func NewClient(network, address string, secret string, dictionary *Dictionary, connAttempts int, logger *log.Logger) (*Client, error) {
-	clnt := &Client{network: network, address: address, secret: secret, dictionary: dictionary,
+func NewClient(net, address string, secret string, dictionary *Dictionary, connAttempts int, logger *log.Logger) (*Client, error) {
+	clnt := &Client{net: net, address: address, secret: secret, dictionary: dictionary,
 		connAttempts: connAttempts, activeReqs: make(map[uint8]*packetReplyHandler), logger: logger}
-	if err := clnt.connect(); err != nil {
+	if connAttempts == 0 {
+		connAttempts = 1 // at least one connection
+	}
+	if err := clnt.connect(connAttempts); err != nil {
 		return nil, err
 	}
 	return clnt, nil
@@ -38,18 +41,18 @@ type Client struct {
 	conn         net.Conn
 	connMux      sync.RWMutex   // protects the connection
 	stopReading  *chan struct{} // signals stop reading of events
-	network      string         // udp/tcp
+	net          string         // udp/tcp
 	address      string
 	secret       string
 	dictionary   *Dictionary
 	connAttempts int
 	activeReqs   map[uint8]*packetReplyHandler // keep record of sent packets for matching with replies
-	aReqMux      sync.RWMutex                  // protects activeRequests
+	aReqsMux     sync.Mutex                    // protects activeRequests
 	logger       *log.Logger
 }
 
-func (c *Client) connect() (err error) {
-	if c.connAttempts == 0 {
+func (c *Client) connect(connAttempts int) (err error) {
+	if connAttempts == 0 {
 		return
 	}
 	if c.conn != nil {
@@ -60,14 +63,14 @@ func (c *Client) connect() (err error) {
 	var i int
 	for {
 		i++
-		if conn, err := net.Dial(c.network, c.address); err == nil {
+		if conn, err := net.Dial(c.net, c.address); err == nil {
 			c.conn = conn
 			stopReading := make(chan struct{})
 			c.stopReading = &stopReading
 			go c.readReplies(stopReading)
 			break
 		}
-		if c.connAttempts != -1 && i >= c.connAttempts { // Maximum reconnects reached, -1 for infinite reconnects
+		if connAttempts != -1 && i >= connAttempts { // Maximum reconnects reached, -1 for infinite reconnects
 			break
 		}
 		time.Sleep(time.Duration(connDelay()) * time.Second) // sleep before new attempt
@@ -87,12 +90,12 @@ func (c *Client) disconnect() {
 		c.stopReading = nil
 	}
 	c.connMux.Unlock()
-	c.aReqMux.Lock()
+	c.aReqsMux.Lock()
 	for key, pHndlr := range c.activeReqs { // close all active requests with error
 		delete(c.activeReqs, key)
 		go pHndlr.handler(pHndlr.pkt.NegativeReply("connection lost"))
 	}
-	c.aReqMux.Unlock()
+	c.aReqsMux.Unlock()
 }
 
 func (c *Client) readReplies(stopReading chan struct{}) {
@@ -118,10 +121,10 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 			log.Printf("error: <%s> when decoding packet", err.Error())
 			continue
 		}
-		c.aReqMux.Lock()
+		c.aReqsMux.Lock()
 		pktHndlr, has := c.activeReqs[rply.Identifier]
 		delete(c.activeReqs, rply.Identifier)
-		c.aReqMux.Unlock()
+		c.aReqsMux.Unlock()
 		if !has {
 			log.Printf("error: no handler for packet with code: %d", rply.Code)
 			continue

@@ -12,10 +12,29 @@ const (
 	MetaDefault = "*default" // default client
 )
 
-// syncedConn locks writing to only one complete request at the time
+// syncedConn queues replies
 type syncedConn struct {
-	sync.Mutex
+	sync.RWMutex
 	conn net.Conn
+}
+
+type requestOriginator struct {
+	req     *Packet
+	synConn *syncedConn
+}
+
+// sendReply writes the reply over the synced connection
+func sendReply(synConn *syncedConn, rply *Packet) (err error) {
+	var buf [4096]byte
+	var n int
+	n, err = rply.Encode(buf[:])
+	if err != nil {
+		return
+	}
+	synConn.Lock()
+	_, err = synConn.conn.Write(buf[:n])
+	synConn.Unlock()
+	return
 }
 
 func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, reqHandlers map[PacketCode]func(*Packet) (*Packet, error)) *Server {
@@ -73,26 +92,24 @@ func (s *Server) handleConnection(synConn *syncedConn) {
 		var rply *Packet
 		if !hasKey {
 			log.Printf("error: <no handler for packet with code: %d>", pkt.Code)
-			rply = pkt.NegativeReply("no handler!")
-		} else {
-			var err error
-			if rply, err = hndlr(pkt); err != nil {
-				rply = pkt.NegativeReply(err.Error())
-			}
-		}
-
-		var buf [4096]byte
-		n, err = rply.Encode(buf[:])
-		if err != nil {
-			log.Printf("error: <%s> on reply attempt", err.Error())
+			rply = pkt.NegativeReply("no handler")
+			go func() {
+				if err := sendReply(synConn, rply); err != nil {
+					log.Printf("error: <%s> sending reply", err.Error())
+				}
+			}()
 			continue
 		}
-		synConn.Lock()
-		_, err = synConn.conn.Write(buf[:n])
-		synConn.Unlock()
-		if err != nil {
-			log.Printf("error: <%s> on connection write", err.Error())
-		}
+		go func() { // execute the handler asynchronously
+			rply, err := hndlr(pkt)
+			if err != nil {
+				rply = pkt.NegativeReply(err.Error())
+			}
+			if err := sendReply(synConn, rply); err != nil {
+				log.Printf("error: <%s> sending reply", err.Error())
+			}
+		}()
+
 	}
 }
 
