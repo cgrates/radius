@@ -18,8 +18,6 @@ type syncedConn struct {
 	conn net.Conn
 }
 
-type ClientID string
-
 func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, reqHandlers map[PacketCode]func(*Packet) (*Packet, error)) *Server {
 	return &Server{net, addr, secrets, dicts, reqHandlers}
 }
@@ -65,7 +63,7 @@ func (s *Server) handleConnection(synConn *syncedConn) {
 			dict = s.dicts[MetaDefault]
 		}
 
-		pkt := &Packet{synConn: synConn, secret: secret, dict: dict}
+		pkt := &Packet{secret: secret, dict: dict}
 		if err = pkt.Decode(b[:n]); err != nil {
 			log.Printf("error: <%s> when decoding packet", err.Error())
 			continue

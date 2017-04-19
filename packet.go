@@ -58,7 +58,6 @@ func (p *Packet) Has(attrNr uint8) bool {
 }
 
 type Packet struct {
-	synConn       *syncedConn
 	dict          *Dictionary
 	secret        string
 	Code          PacketCode
@@ -127,7 +126,6 @@ func (p *Packet) Attributes(attrNr uint8) []*AVP {
 
 func (p *Packet) Reply() *Packet {
 	return &Packet{
-		synConn:       p.synConn,
 		dict:          p.dict,
 		secret:        p.secret,
 		Identifier:    p.Identifier,
@@ -149,6 +147,7 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 	return
 }
 
+/*
 // Sends the reply back to originator
 func (p *Packet) Send() (err error) {
 	var buf [4096]byte
@@ -162,6 +161,7 @@ func (p *Packet) Send() (err error) {
 	p.synConn.Unlock()
 	return
 }
+*/
 
 /*
 func (p *Packet) SendAndWait(c net.PacketConn, addr net.Addr) (pac *Packet, err error) {

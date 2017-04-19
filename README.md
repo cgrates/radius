@@ -1,2 +1,2 @@
 # radigo
-RADIUS protocol goodies in Go language.
+RADIUS library for Go language.
