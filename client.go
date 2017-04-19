@@ -19,14 +19,14 @@ func fib() func() int {
 
 // packetReplyHandler caches the original packet and handler for it
 type packetReplyHandler struct {
-	pkt     *Packet
-	handler func(*Packet)
+	pkt    *Packet      // original request here
+	rplChn chan *Packet // publish replies here
 }
 
 // NewClient creates a new client and connects it to the address
-func NewClient(net, address string, secret string, dictionary *Dictionary, connAttempts int, logger *log.Logger) (*Client, error) {
+func NewClient(net, address string, secret string, dictionary *Dictionary, connAttempts int) (*Client, error) {
 	clnt := &Client{net: net, address: address, secret: secret, dictionary: dictionary,
-		connAttempts: connAttempts, activeReqs: make(map[uint8]*packetReplyHandler), logger: logger}
+		connAttempts: connAttempts, activeReqs: make(map[uint8]*packetReplyHandler)}
 	if connAttempts == 0 {
 		connAttempts = 1 // at least one connection
 	}
@@ -48,7 +48,6 @@ type Client struct {
 	connAttempts int
 	activeReqs   map[uint8]*packetReplyHandler // keep record of sent packets for matching with replies
 	aReqsMux     sync.Mutex                    // protects activeRequests
-	logger       *log.Logger
 }
 
 func (c *Client) connect(connAttempts int) (err error) {
@@ -93,7 +92,7 @@ func (c *Client) disconnect() {
 	c.aReqsMux.Lock()
 	for key, pHndlr := range c.activeReqs { // close all active requests with error
 		delete(c.activeReqs, key)
-		go pHndlr.handler(pHndlr.pkt.NegativeReply("connection lost"))
+		pHndlr.rplChn <- pHndlr.pkt.NegativeReply("connection lost")
 	}
 	c.aReqsMux.Unlock()
 }
@@ -106,13 +105,15 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 		default: // Unlock waiting here
 		}
 		var b [4096]byte
+		c.connMux.RLock()
 		n, err := c.conn.Read(b[:])
+		c.connMux.RUnlock()
 		if err != nil {
-			c.logger.Println(err.Error())
+			log.Println(err.Error())
 			c.disconnect()
 			break
 		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
-			c.logger.Println("error: unexpected packet length received")
+			log.Println("error: unexpected packet length received")
 			c.disconnect()
 			break
 		}
@@ -129,6 +130,28 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 			log.Printf("error: no handler for packet with code: %d", rply.Code)
 			continue
 		}
-		go pktHndlr.handler(rply)
+		pktHndlr.rplChn <- rply
 	}
+}
+
+// SendRequest dispatches a request and returns it's reply or error
+func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
+	rplyChn := make(chan *Packet, 1) // will receive reply here, make sure it is buffered
+	var buf [4096]byte
+	var n int
+	n, err = req.Encode(buf[:])
+	if err != nil {
+		return
+	}
+	c.aReqsMux.Lock()
+	c.activeReqs[req.Identifier] = &packetReplyHandler{req, rplyChn}
+	c.aReqsMux.Unlock()
+	c.connMux.RLock()
+	_, err = c.conn.Write(buf[:n])
+	c.connMux.RUnlock()
+	if err != nil {
+		return
+	}
+	rpl = <-rplyChn
+	return
 }

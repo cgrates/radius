@@ -37,17 +37,18 @@ func sendReply(synConn *syncedConn, rply *Packet) (err error) {
 	return
 }
 
-func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary, reqHandlers map[PacketCode]func(*Packet) (*Packet, error)) *Server {
+func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary,
+	reqHandlers map[PacketCode]func(*Packet) (*Packet, error)) *Server {
 	return &Server{net, addr, secrets, dicts, reqHandlers}
 }
 
 // Server represents a single listener on a port
 type Server struct {
-	net         string                                                     // tcp, udp ...
-	addr        string                                                     // host:port or :port
-	secrets     map[string]string                                          // client bounded secrets, *default for server wide
-	dicts       map[string]*Dictionary                                     // client bounded dictionaries, *default for server wide
-	reqHandlers map[PacketCode]func(req *Packet) (rply *Packet, err error) // map[PacketCode]handler, 0 for default
+	net         string                                        // tcp, udp ...
+	addr        string                                        // host:port or :port
+	secrets     map[string]string                             // client bounded secrets, *default for server wide
+	dicts       map[string]*Dictionary                        // client bounded dictionaries, *default for server wide
+	reqHandlers map[PacketCode]func(*Packet) (*Packet, error) // map[PacketCode]handler, 0 for default
 }
 
 // handleConnection will listen on a single inbound connection for packets
@@ -69,7 +70,7 @@ func (s *Server) handleConnection(synConn *syncedConn) {
 			synConn.conn.Close()
 			return
 		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
-			log.Printf("error: unexpected packet length, disconnecting...", err.Error())
+			log.Printf("error: unexpected packet length, disconnecting...")
 			synConn.conn.Close()
 			return
 		}
