@@ -73,8 +73,13 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 	copy(b[4:20], p.Authenticator[:])
 	written := 20
 	bb := b[20:]
-	for i, _ := range p.AVPs {
-		n, err = p.AVPs[i].Encode(bb)
+	for _, avp := range p.AVPs {
+		if avp.RawValue == nil { // Need to encode concrete into raw
+			if avp.RawValue, err = ifaceToBytes(avp.Type, avp.Value); err != nil {
+				return
+			}
+		}
+		n, err = avp.Encode(bb)
 		written += n
 		if err != nil {
 			return written, err
