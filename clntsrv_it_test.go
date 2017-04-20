@@ -40,8 +40,6 @@ func TestRadClientAuth(t *testing.T) {
 	req := &Packet{
 		Code:       AccessRequest,
 		Identifier: 1,
-		Authenticator: [16]byte{0x2a, 0xee, 0x86, 0xf0, 0x8d, 0x0d, 0x55, 0x96, 0x9c, 0xa5, 0x97, 0x8e,
-			0x0d, 0x33, 0x67, 0xa2},
 		AVPs: []*AVP{
 			&AVP{
 				Number:   uint8(1),                                   // User-Name
@@ -60,8 +58,6 @@ func TestRadClientAccount(t *testing.T) {
 	req := &Packet{
 		Code:       AccountingRequest,
 		Identifier: 2,
-		Authenticator: [16]byte{0x2a, 0xee, 0x86, 0xf0, 0x8d, 0x0d, 0x55, 0x96, 0x9c, 0xa5, 0x97, 0x8e,
-			0x0d, 0x33, 0x67, 0xa2},
 		AVPs: []*AVP{
 			&AVP{
 				Number:   uint8(1),                                   // User-Name

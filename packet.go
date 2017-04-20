@@ -1,6 +1,7 @@
 package radigo
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/binary"
@@ -40,6 +41,16 @@ func computeAuthenticator(raw []byte, secret string) (acator [16]byte) {
 		copy(acator[:], hash.Sum(nil))
 	}
 	return
+}
+
+// IsAuthentic should be called by client to make sure the reply is authentic
+// reqAuthenticator is the original request authenticator to be matched against
+func isAuthentic(rawPkt []byte, secret string, reqAuthenticator [16]byte) bool {
+	var pktAcator [16]byte
+	copy(pktAcator[:], rawPkt[4:20])
+	copy(rawPkt[4:20], reqAuthenticator[:])
+	shouldBeAcator := computeAuthenticator(rawPkt, secret)
+	return bytes.Equal(pktAcator[:], shouldBeAcator[:])
 }
 
 type PacketCode uint8
@@ -107,7 +118,7 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 		bb = bb[n:]
 	}
 	binary.BigEndian.PutUint16(b[2:4], uint16(written))
-	p.Authenticator = computeAuthenticator(b[:], p.secret)
+	p.Authenticator = computeAuthenticator(b[:written], p.secret)
 	copy(b[4:20], p.Authenticator[:])
 	return written, err
 }

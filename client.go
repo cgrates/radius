@@ -2,6 +2,7 @@ package radigo
 
 import (
 	"encoding/binary"
+	"errors"
 	"log"
 	"net"
 	"sync"
@@ -130,6 +131,9 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 			log.Printf("error: no handler for packet with code: %d", rply.Code)
 			continue
 		}
+		if !isAuthentic(b[:n], c.secret, pktHndlr.pkt.Authenticator) {
+			rply = nil
+		}
 		pktHndlr.rplChn <- rply
 	}
 }
@@ -139,6 +143,7 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 	rplyChn := make(chan *Packet, 1) // will receive reply here, make sure it is buffered
 	var buf [4096]byte
 	var n int
+	req.secret = c.secret
 	n, err = req.Encode(buf[:])
 	if err != nil {
 		return
@@ -153,5 +158,8 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 		return
 	}
 	rpl = <-rplyChn
+	if rpl == nil {
+		return nil, errors.New("invalid packet")
+	}
 	return
 }
