@@ -1,8 +1,8 @@
 package radigo
 
 import (
-	"crypto"
-	_ "crypto/md5"
+	"crypto/md5"
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
 )
@@ -21,6 +21,26 @@ const (
 	VendorSpecific                = 26 // vendor specific AVP number
 	NoVendor                      = 0
 )
+
+// computeAuthenticator computes the authenticator
+// raw is the data received or to be sent over network
+func computeAuthenticator(raw []byte, secret string) (acator [16]byte) {
+	pCode := PacketCode(raw[0])
+	switch pCode {
+	case AccessRequest: // we generate the packet
+		rand.Read(acator[:]) // generate a random authenticator
+	case AccessAccept, AccessReject, AccessChallenge, AccountingRequest, AccountingResponse:
+		if pCode == AccountingRequest { // AccountingRequest concatenates null instead of previous authenticator so we trick it here
+			var nul [16]byte
+			copy(raw[4:20], nul[:])
+		}
+		hash := md5.New()
+		hash.Write(raw[:])
+		hash.Write([]byte(secret))
+		copy(acator[:], hash.Sum(nil))
+	}
+	return
+}
 
 type PacketCode uint8
 
@@ -86,15 +106,9 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 		}
 		bb = bb[n:]
 	}
-	//check if written too big.
 	binary.BigEndian.PutUint16(b[2:4], uint16(written))
-
-	// fix up the authenticator
-	hasher := crypto.Hash(crypto.MD5).New()
-	hasher.Write(b[:written])
-	hasher.Write([]byte(p.secret))
-	copy(b[4:20], hasher.Sum(nil))
-
+	p.Authenticator = computeAuthenticator(b[:], p.secret)
+	copy(b[4:20], p.Authenticator[:])
 	return written, err
 }
 
@@ -151,37 +165,3 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 	}
 	return
 }
-
-/*
-// Sends the reply back to originator
-func (p *Packet) Send() (err error) {
-	var buf [4096]byte
-	var n int
-	n, err = p.Encode(buf[:])
-	if err != nil {
-		return err
-	}
-	p.synConn.Lock()
-	_, err = p.synConn.conn.Write(buf[:n])
-	p.synConn.Unlock()
-	return
-}
-*/
-
-/*
-func (p *Packet) SendAndWait(c net.PacketConn, addr net.Addr) (pac *Packet, err error) {
-	var buf [4096]byte
-	err = p.Send(c, addr)
-	if err != nil {
-		return nil, err
-	}
-	n, addr, err := c.ReadFrom(buf[:])
-	b := buf[:n]
-	pac = new(Packet)
-	pac.Code = PacketCode(b[0])
-	pac.Identifier = b[1]
-	copy(pac.Authenticator[:], b[4:20])
-	return pac, nil
-}
-
-*/
