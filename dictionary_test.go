@@ -42,12 +42,12 @@ func TestParseDictValue(t *testing.T) {
 	}
 }
 
-func TestParseDictVendor(t *testing.T) {
-	eDV := &dictVendor{
-		vendorName:   "Cisco",
-		vendorNumber: 9,
+func TestParseDictionaryVendor(t *testing.T) {
+	eDV := &DictionaryVendor{
+		VendorName:   "Cisco",
+		VendorNumber: 9,
 	}
-	if dv, err := parseDictVendor([]string{"VENDOR", "Cisco", "9"}); err != nil {
+	if dv, err := parseDictionaryVendor([]string{"VENDOR", "Cisco", "9"}); err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(eDV, dv) {
 		t.Errorf("Expecting: %+v, received: %+v", eDV, dv)
@@ -58,12 +58,12 @@ func TestParseDictVendor(t *testing.T) {
 	if _, err := parseDictionaryAttribute([]string{"VENDOR", "Cisco", "string"}); err == nil {
 		t.Error("Should have error")
 	}
-	eDV = &dictVendor{
-		vendorName:   "Cisco",
-		vendorNumber: 9,
-		format:       "1,0",
+	eDV = &DictionaryVendor{
+		VendorName:   "Cisco",
+		VendorNumber: 9,
+		Format:       "1,0",
 	}
-	if dv, err := parseDictVendor([]string{"VENDOR", "Cisco", "9", "1,0"}); err != nil {
+	if dv, err := parseDictionaryVendor([]string{"VENDOR", "Cisco", "9", "1,0"}); err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(eDV, dv) {
 		t.Errorf("Expecting: %+v, received: %+v", eDV, dv)
@@ -146,27 +146,27 @@ END-VENDOR      Cisco
 				},
 			},
 		},
-		vc: map[uint32]*dictVendor{
-			9: &dictVendor{
-				vendorName:   "Cisco",
-				vendorNumber: 9,
+		vc: map[uint32]*DictionaryVendor{
+			9: &DictionaryVendor{
+				VendorName:   "Cisco",
+				VendorNumber: 9,
 			},
-			311: &dictVendor{
-				vendorName:   "Microsoft",
-				vendorNumber: 311,
-			},
-		},
-		vn: map[string]*dictVendor{
-			"Cisco": &dictVendor{
-				vendorName:   "Cisco",
-				vendorNumber: 9,
-			},
-			"Microsoft": &dictVendor{
-				vendorName:   "Microsoft",
-				vendorNumber: 311,
+			311: &DictionaryVendor{
+				VendorName:   "Microsoft",
+				VendorNumber: 311,
 			},
 		},
-		vndr: new(dictVendor),
+		vn: map[string]*DictionaryVendor{
+			"Cisco": &DictionaryVendor{
+				VendorName:   "Cisco",
+				VendorNumber: 9,
+			},
+			"Microsoft": &DictionaryVendor{
+				VendorName:   "Microsoft",
+				VendorNumber: 311,
+			},
+		},
+		vndr: new(DictionaryVendor),
 	}
 	dict := NewEmptyDictionary()
 	if err := dict.parseFromReader(strings.NewReader(freeRADIUSDocDictSample)); err != nil {
@@ -231,27 +231,27 @@ func TestDictionaryAttributeWith(t *testing.T) {
 				},
 			},
 		},
-		vc: map[uint32]*dictVendor{
-			9: &dictVendor{
-				vendorName:   "Cisco",
-				vendorNumber: 9,
+		vc: map[uint32]*DictionaryVendor{
+			9: &DictionaryVendor{
+				VendorName:   "Cisco",
+				VendorNumber: 9,
 			},
-			311: &dictVendor{
-				vendorName:   "Microsoft",
-				vendorNumber: 311,
-			},
-		},
-		vn: map[string]*dictVendor{
-			"Cisco": &dictVendor{
-				vendorName:   "Cisco",
-				vendorNumber: 9,
-			},
-			"Microsoft": &dictVendor{
-				vendorName:   "Microsoft",
-				vendorNumber: 311,
+			311: &DictionaryVendor{
+				VendorName:   "Microsoft",
+				VendorNumber: 311,
 			},
 		},
-		vndr: new(dictVendor),
+		vn: map[string]*DictionaryVendor{
+			"Cisco": &DictionaryVendor{
+				VendorName:   "Cisco",
+				VendorNumber: 9,
+			},
+			"Microsoft": &DictionaryVendor{
+				VendorName:   "Microsoft",
+				VendorNumber: 311,
+			},
+		},
+		vndr: new(DictionaryVendor),
 	}
 	eDA := &DictionaryAttribute{
 		AttributeName:   "User-Name",
@@ -330,7 +330,7 @@ func TestNewDictionaryFromFolderWithRFC2865(t *testing.T) {
 	if len(dict.vn) != 2 {
 		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.vn), dict.vn)
 	}
-	if dict.vndr.vendorNumber != 0 {
+	if dict.vndr.VendorNumber != 0 {
 		t.Error(dict.vndr)
 	}
 }

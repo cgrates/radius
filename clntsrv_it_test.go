@@ -9,6 +9,10 @@ import (
 	"testing"
 )
 
+var (
+	dict *Dictionary
+)
+
 func handleAuth(req *Packet) (rpl *Packet, err error) {
 	rpl = req.Reply()
 	rpl.Code = AccessAccept
@@ -22,6 +26,32 @@ func handleAcct(req *Packet) (rpl *Packet, err error) {
 }
 
 func init() {
+	freeRADIUSDocDictSample := `
+# Most of the lines are copied from freeradius documentation here:
+# http://networkradius.com/doc/3.0.10/concepts/dictionary/introduction.html
+
+# Attributes
+ATTRIBUTE    User-Name    1    string
+ATTRIBUTE    Password     2    string
+
+# Alias values
+VALUE    Framed-Protocol    PPP    1
+
+# Vendors
+VENDOR    Cisco    9
+VENDOR    Microsoft 311
+
+# Vendor AVPs
+BEGIN-VENDOR    Cisco
+ATTRIBUTE       Cisco-AVPair    1   string
+ATTRIBUTE       Cisco-NAS-Port  2	string
+END-VENDOR      Cisco
+`
+	dict = RFC2865Dictionary()
+	// Load some VSA for our tests
+	if err := dict.parseFromReader(strings.NewReader(freeRADIUSDocDictSample)); err != nil {
+		t.Error(err)
+	}
 	go NewServer("tcp", "localhost:1812",
 		map[string]string{"127.0.0.1": "CGRateS.org"},
 		map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()},
@@ -59,9 +89,19 @@ func TestRadClientAccount(t *testing.T) {
 		Code:       AccountingRequest,
 		Identifier: 2,
 		AVPs: []*AVP{
-			&AVP{
-				Number:   uint8(1),                                   // User-Name
-				RawValue: []byte{0x66, 0x6c, 0x6f, 0x70, 0x73, 0x79}, // flopsy
+			AVPs: []*AVP{
+				&AVP{
+					Name:  "User-Name",
+					Value: "flopsy",
+				},
+				&AVP{
+					Number: VendorSpecific,
+					Value: &VSA{
+						VendorName: "Cisco",
+						Name:       "Cisco-NAS-Port",
+						Value:      "CGR1",
+					},
+				},
 			},
 		},
 	}

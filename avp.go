@@ -39,19 +39,30 @@ func (a *AVP) SetValue(da *DictionaryAttribute) (err error) {
 	}
 	a.Lock()
 	defer a.Unlock()
-	if val, err := decodeAVPValue(da.AttributeType, a.RawValue); err != nil {
-		if err == errUnsupportedAttributeType {
-			a.Name = err.Error()
-			a.Type = da.AttributeType
-			a.Value = val
-		} else {
+	if a.Number == VendorSpecific { // Special handling of VSA values
+		vsa, err := NewVSAFromAVP(a)
+		if err != nil {
 			return err
 		}
+		if err := vsa.SetValue(da); err != nil {
+			return err
+		}
+		a.Name = "Vendor-Specific"
+		a.Type = stringVal
+		a.Value = vsa
+		return nil
+	}
+	val, err := decodeAVPValue(da.AttributeType, a.RawValue)
+	if err != nil {
+		if err != errUnsupportedAttributeType {
+			return err
+		}
+		a.Name = errUnsupportedAttributeType.Error()
 	} else {
 		a.Name = da.AttributeName
-		a.Type = da.AttributeType
-		a.Value = val
 	}
+	a.Type = da.AttributeType
+	a.Value = val
 	return
 }
 
@@ -70,15 +81,17 @@ func NewVSAFromAVP(avp *AVP) (*VSA, error) {
 // Vendor specific Attribute/Val
 // originally ported from github.com/bronze1man/radius/avp_vendor.go
 type VSA struct {
-	Vendor   uint32
-	Number   uint8       // attribute number
-	RawValue []byte      // value as received over network
-	Name     string      // attribute name
-	Type     string      // type of the value helping us to convert to concrete
-	Value    interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
+	sync.RWMutex
+	Vendor     uint32
+	Number     uint8       // attribute number
+	RawValue   []byte      // value as received over network
+	VendorName string      // populated by dictionary
+	Name       string      // attribute name
+	Type       string      // type of the value helping us to convert to concrete
+	Value      interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
 }
 
-// encodes vsa back to AVP
+// encodes vsa back into AVP
 func (vsa *VSA) AVP() *AVP {
 	vsa_len := len(vsa.RawValue)
 	// vendor id (4) + attr type (1) + attr len (1)
@@ -89,6 +102,26 @@ func (vsa *VSA) AVP() *AVP {
 	copy(vsa_value[6:], vsa.RawValue)
 	avp := &AVP{Number: VendorSpecific, RawValue: vsa_value}
 	return avp
+}
+
+func (vsa *VSA) SetValue(da *DictionaryAttribute) (err error) {
+	if vsa.Name != "" { // already set, maybe in application
+		return
+	}
+	vsa.Lock()
+	defer vsa.Unlock()
+	val, err := decodeAVPValue(da.AttributeType, vsa.RawValue)
+	if err != nil {
+		if err != errUnsupportedAttributeType {
+			return err
+		}
+		vsa.Name = errUnsupportedAttributeType.Error()
+	} else {
+		vsa.Name = da.AttributeName
+	}
+	vsa.Type = da.AttributeType
+	vsa.Value = val
+	return
 }
 
 // decodeAVPValue converts raw bytes received over the network into concrete Go datatype

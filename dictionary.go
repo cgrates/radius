@@ -19,7 +19,7 @@ const (
 	BeginVendorKeyword = "BEGIN-VENDOR"
 	EndVendorKeyword   = "END-VENDOR"
 	IncludeFileKeyword = "$INCLUDE"
-	// rfc2865 value formats
+	// rfc2865 value Formats
 	textVal    = "text"
 	stringVal  = "string"
 	addressVal = "address"
@@ -98,7 +98,7 @@ ATTRIBUTE	Login-LAT-Port		63	integer
 // input: one line from the reader
 func parseDictionaryAttribute(input []string) (*DictionaryAttribute, error) {
 	if len(input) < 4 {
-		return nil, errors.New("mandatory information missing")
+		return nil, errors.New("mandatory inFormation missing")
 	}
 	attrNr, err := strconv.Atoi(input[2])
 	if err != nil {
@@ -119,7 +119,7 @@ type DictionaryAttribute struct {
 // VALUE    Framed-Protocol    PPP    1
 func parseDictValue(input []string) (dVal *dictValue, err error) {
 	if len(input) < 4 {
-		return nil, errors.New("mandatory information missing")
+		return nil, errors.New("mandatory inFormation missing")
 	}
 	attrNr, err := strconv.Atoi(input[3])
 	if err != nil {
@@ -136,33 +136,33 @@ type dictValue struct {
 	attributeNumber uint8
 }
 
-// input VENDOR vendor-name number [format]
-func parseDictVendor(input []string) (dVndr *dictVendor, err error) {
+// input VENDOR vendor-name number [Format]
+func parseDictionaryVendor(input []string) (dVndr *DictionaryVendor, err error) {
 	if len(input) < 3 {
-		return nil, errors.New("mandatory information missing")
+		return nil, errors.New("mandatory inFormation missing")
 	}
 	nr, err := strconv.Atoi(input[2])
 	if err != nil {
 		return nil, err
 	}
-	dVndr = &dictVendor{vendorName: input[1], vendorNumber: uint32(nr)}
+	dVndr = &DictionaryVendor{VendorName: input[1], VendorNumber: uint32(nr)}
 	if len(input) > 3 {
-		dVndr.format = input[3]
+		dVndr.Format = input[3]
 	}
 	return
 }
 
-// dictVendor defines a dictionary mapping for a vendor.
-type dictVendor struct {
-	vendorName   string
-	vendorNumber uint32
-	format       string
+// DictionaryVendor defines a dictionary mapping for a vendor.
+type DictionaryVendor struct {
+	VendorName   string
+	VendorNumber uint32
+	Format       string
 }
 
 // NewEmptyDictionary initializes properly the maps in the Dictionary struct
 func NewEmptyDictionary() *Dictionary {
 	return &Dictionary{ac: make(map[uint32]map[uint8]*DictionaryAttribute), an: make(map[string]map[string]*DictionaryAttribute),
-		vc: make(map[uint32]*dictVendor), vn: make(map[string]*dictVendor), vndr: new(dictVendor)}
+		vc: make(map[uint32]*DictionaryVendor), vn: make(map[string]*DictionaryVendor), vndr: new(DictionaryVendor)}
 }
 
 // NewDictionaryFromFolderWithDefaults parses the folder and returns the Dictionary object
@@ -176,14 +176,14 @@ func NewDictionaryFromFolderWithRFC2865(dirPath string) (*Dictionary, error) {
 }
 
 // Dictionary translates between types and human readable attributes
-// provides per-client information
+// provides per-client inFormation
 type Dictionary struct {
 	sync.RWMutex                                            // locks the Dictionary so we can update it on run-time
-	ac           map[uint32]map[uint8]*DictionaryAttribute  // attach information on vendor/attribute number
-	an           map[string]map[string]*DictionaryAttribute // attach information on vendor/attribute name
-	vc           map[uint32]*dictVendor                     // index on vendor number
-	vn           map[string]*dictVendor                     // index on vendor name
-	vndr         *dictVendor                                // active vendor number
+	ac           map[uint32]map[uint8]*DictionaryAttribute  // attach inFormation on vendor/attribute number
+	an           map[string]map[string]*DictionaryAttribute // attach inFormation on vendor/attribute name
+	vc           map[uint32]*DictionaryVendor               // index on vendor number
+	vn           map[string]*DictionaryVendor               // index on vendor name
+	vndr         *DictionaryVendor                          // active vendor number
 }
 
 // parseFromReader loops through the lines in the reader, adding info to the Dictionary
@@ -214,28 +214,28 @@ func (dict *Dictionary) parseFromReader(rdr io.Reader) (err error) {
 				return fmt.Errorf("line: %d, <%s>", lnNr, err.Error())
 			}
 			dict.Lock()
-			if _, hasIt := dict.ac[dict.vndr.vendorNumber]; !hasIt {
-				dict.ac[dict.vndr.vendorNumber] = make(map[uint8]*DictionaryAttribute)
+			if _, hasIt := dict.ac[dict.vndr.VendorNumber]; !hasIt {
+				dict.ac[dict.vndr.VendorNumber] = make(map[uint8]*DictionaryAttribute)
 			}
-			dict.ac[dict.vndr.vendorNumber][dAttr.AttributeNumber] = dAttr
-			if _, hasIt := dict.an[dict.vndr.vendorName]; !hasIt {
-				dict.an[dict.vndr.vendorName] = make(map[string]*DictionaryAttribute)
+			dict.ac[dict.vndr.VendorNumber][dAttr.AttributeNumber] = dAttr
+			if _, hasIt := dict.an[dict.vndr.VendorName]; !hasIt {
+				dict.an[dict.vndr.VendorName] = make(map[string]*DictionaryAttribute)
 			}
-			dict.an[dict.vndr.vendorName][dAttr.AttributeName] = dAttr
+			dict.an[dict.vndr.VendorName][dAttr.AttributeName] = dAttr
 			dict.Unlock()
 		case ValueKeyword: // ToDo: finds use for this
 		case VendorKeyword:
-			dVndr, err := parseDictVendor(flds)
+			dVndr, err := parseDictionaryVendor(flds)
 			if err != nil {
 				return fmt.Errorf("line: %d, <%s>", lnNr, err.Error())
 			}
 			dict.Lock()
-			dict.vc[dVndr.vendorNumber] = dVndr
-			dict.vn[dVndr.vendorName] = dVndr
+			dict.vc[dVndr.VendorNumber] = dVndr
+			dict.vn[dVndr.VendorName] = dVndr
 			dict.Unlock()
 		case BeginVendorKeyword:
 			if len(flds) < 2 {
-				return fmt.Errorf("line: %d, <mandatory information missing>", lnNr)
+				return fmt.Errorf("line: %d, <mandatory inFormation missing>", lnNr)
 			}
 			dict.Lock()
 			if dVndr, has := dict.vn[flds[1]]; !has {
@@ -246,15 +246,15 @@ func (dict *Dictionary) parseFromReader(rdr io.Reader) (err error) {
 			dict.Unlock()
 		case EndVendorKeyword:
 			if len(flds) < 2 {
-				return fmt.Errorf("line: %d, <mandatory information missing>", lnNr)
+				return fmt.Errorf("line: %d, <mandatory inFormation missing>", lnNr)
 			}
 			dict.Lock()
 			if dVndr, has := dict.vn[flds[1]]; !has {
 				return fmt.Errorf("line: %d, <unknown vendor name: %s>", lnNr, flds[1])
-			} else if dict.vndr.vendorNumber != dVndr.vendorNumber {
+			} else if dict.vndr.VendorNumber != dVndr.VendorNumber {
 				return fmt.Errorf("line: %d, <no BEGIN_VENDOR for vendor name: %s>", lnNr, flds[1])
 			} else {
-				dict.vndr = new(dictVendor)
+				dict.vndr = new(DictionaryVendor)
 			}
 			dict.Unlock()
 		case IncludeFileKeyword: // ToDo
@@ -316,15 +316,27 @@ func (dict *Dictionary) AttributeWithNumber(attrNr uint8, vendorCode uint32) *Di
 }
 
 // DictionaryAttribute queries Dictionary for Attribute with specific name
-func (dict *Dictionary) AttributeWithName(attrName, vendorName string) *DictionaryAttribute {
+func (dict *Dictionary) AttributeWithName(attrName, VendorName string) *DictionaryAttribute {
 	dict.RLock()
 	defer dict.RUnlock()
-	if _, has := dict.an[vendorName]; !has {
+	if _, has := dict.an[VendorName]; !has {
 		return nil
-	} else if _, has = dict.an[vendorName][attrName]; !has {
+	} else if _, has = dict.an[VendorName][attrName]; !has {
 		return nil
 	}
-	return dict.an[vendorName][attrName]
+	return dict.an[VendorName][attrName]
+}
+
+func (dict *Dictionary) VendorWithName(VendorName string) *DictionaryVendor {
+	dict.RLock()
+	defer dict.RUnlock()
+	return dict.vn[VendorName]
+}
+
+func (dict *Dictionary) VendorWithCode(vendorCode uint32) *DictionaryVendor {
+	dict.RLock()
+	defer dict.RUnlock()
+	return dict.vc[vendorCode]
 }
 
 // Dictionary data required in RFC2865

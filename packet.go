@@ -99,6 +99,7 @@ type Packet struct {
 }
 
 // Encode is used to encode the Packet into buffer b returning number of bytes written or error
+// ToDo: Optimize the code duplication due to VSA searches
 func (p *Packet) Encode(b []byte) (n int, err error) {
 	b[0] = uint8(p.Code)
 	b[1] = uint8(p.Identifier)
@@ -107,6 +108,9 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 	bb := b[20:]
 	for _, avp := range p.AVPs {
 		if avp.RawValue == nil { // Need to encode concrete into raw
+			if avp.Value == nil {
+				return 0, fmt.Errorf("failed encoding avp: %+v, no value", avp)
+			}
 			if avp.Type == "" {
 				var da *DictionaryAttribute
 				if avp.Name != "" {
@@ -115,16 +119,52 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 					da = p.dict.AttributeWithNumber(avp.Number, 0)
 				}
 				if da == nil {
-					return 0, fmt.Errorf("failed encoding avp: %+v", avp)
+					return 0, fmt.Errorf("failed encoding avp: %+v, no dictionary info", avp)
 				}
 				avp.Name = da.AttributeName
 				avp.Type = da.AttributeType
 				avp.Number = da.AttributeNumber
 			}
-			if avp.RawValue, err = ifaceToBytes(avp.Type, avp.Value); err != nil {
+			if avp.Number == VendorSpecific { // handle VSA differently
+				vsa, ok := avp.Value.(*VSA)
+				if !ok {
+					return 0, fmt.Errorf("failed encoding avp: %+v, cannot extract VSA", avp)
+				}
+				if vsa.RawValue == nil {
+					if vsa.Value == nil {
+						return 0, fmt.Errorf("failed encoding vsa: %+v, no value", vsa)
+					}
+					if vsa.Type == "" {
+						var da *DictionaryAttribute
+						if vsa.Name != "" {
+							if vsa.VendorName == "" {
+								if vndr := p.dict.VendorWithCode(vsa.Vendor); vndr == nil {
+									return 0, fmt.Errorf("failed encoding vsa: %+v, no vendor in dictionary", vsa)
+								} else {
+									vsa.VendorName = vndr.VendorName
+								}
+							}
+							da = p.dict.AttributeWithName(vsa.Name, vsa.VendorName)
+						} else if avp.Number != 0 {
+							da = p.dict.AttributeWithNumber(avp.Number, vsa.Vendor)
+						}
+						if da == nil {
+							return 0, fmt.Errorf("failed encoding vsa: %+v, no dictionary info", vsa)
+						}
+						vsa.Name = da.AttributeName
+						vsa.Type = da.AttributeType
+						vsa.Number = da.AttributeNumber
+					}
+					if vsa.RawValue, err = ifaceToBytes(vsa.Type, vsa.Value); err != nil {
+						return
+					}
+				}
+				avp.RawValue = vsa.AVP().RawValue
+			} else if avp.RawValue, err = ifaceToBytes(avp.Type, avp.Value); err != nil {
 				return
 			}
 		}
+
 		n, err = avp.Encode(bb)
 		written += n
 		if err != nil {
