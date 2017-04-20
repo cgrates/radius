@@ -42,8 +42,8 @@ func TestRadClientAuth(t *testing.T) {
 		Identifier: 1,
 		AVPs: []*AVP{
 			&AVP{
-				Number:   uint8(1),                                   // User-Name
-				RawValue: []byte{0x66, 0x6c, 0x6f, 0x70, 0x73, 0x79}, // flopsy
+				Name:  "User-Name",
+				Value: "flopsy",
 			},
 		},
 	}

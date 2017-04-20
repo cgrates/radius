@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 const (
@@ -106,6 +107,20 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 	bb := b[20:]
 	for _, avp := range p.AVPs {
 		if avp.RawValue == nil { // Need to encode concrete into raw
+			if avp.Type == "" {
+				var da *DictionaryAttribute
+				if avp.Name != "" {
+					da = p.dict.AttributeWithName(avp.Name, "")
+				} else if avp.Number != 0 {
+					da = p.dict.AttributeWithNumber(avp.Number, 0)
+				}
+				if da == nil {
+					return 0, fmt.Errorf("failed encoding avp: %+v", avp)
+				}
+				avp.Name = da.AttributeName
+				avp.Type = da.AttributeType
+				avp.Number = da.AttributeNumber
+			}
 			if avp.RawValue, err = ifaceToBytes(avp.Type, avp.Value); err != nil {
 				return
 			}

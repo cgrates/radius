@@ -144,6 +144,7 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 	var buf [4096]byte
 	var n int
 	req.secret = c.secret
+	req.dict = c.dictionary
 	n, err = req.Encode(buf[:])
 	if err != nil {
 		return
