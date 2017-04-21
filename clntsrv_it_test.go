@@ -92,10 +92,15 @@ func TestRadClientAuth(t *testing.T) {
 			},
 		},
 	}
-	if reply, err := authClnt.SendRequest(req); err != nil {
+	reply, err := authClnt.SendRequest(req)
+	if err != nil {
 		t.Error(err)
-	} else if reply.Code != AccessAccept {
+	}
+	if reply.Code != AccessAccept {
 		t.Errorf("Received reply: %+v", reply)
+	}
+	if len(reply.AVPs) != len(req.AVPs) {
+		t.Errorf("Expecting: %+v, received: %+v", req.AVPs, reply.AVPs)
 	}
 }
 
@@ -122,9 +127,14 @@ func TestRadClientAccount(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if reply, err := acntClnt.SendRequest(req); err != nil {
+	reply, err := acntClnt.SendRequest(req)
+	if err != nil {
 		t.Error(err)
-	} else if reply.Code != AccountingResponse {
+	}
+	if reply.Code != AccountingResponse {
 		t.Errorf("Received reply: %+v", reply)
+	}
+	if len(reply.AVPs) != len(req.AVPs) {
+		t.Errorf("Expecting: %+v, received: %+v", req.AVPs, reply.AVPs)
 	}
 }

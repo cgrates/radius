@@ -6,7 +6,8 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
-	"fmt"
+	"log"
+	"sync"
 )
 
 const (
@@ -90,6 +91,7 @@ func (p *Packet) Has(attrNr uint8) bool {
 }
 
 type Packet struct {
+	sync.RWMutex
 	dict          *Dictionary
 	secret        string
 	Code          PacketCode
@@ -99,8 +101,9 @@ type Packet struct {
 }
 
 // Encode is used to encode the Packet into buffer b returning number of bytes written or error
-// ToDo: Optimize the code duplication due to VSA searches
 func (p *Packet) Encode(b []byte) (n int, err error) {
+	p.RLock()
+	defer p.RUnlock()
 	b[0] = uint8(p.Code)
 	b[1] = uint8(p.Identifier)
 	copy(b[4:20], p.Authenticator[:])
@@ -108,63 +111,10 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 	bb := b[20:]
 	for _, avp := range p.AVPs {
 		if avp.RawValue == nil { // Need to encode concrete into raw
-			if avp.Value == nil {
-				return 0, fmt.Errorf("failed encoding avp: %+v, no value", avp)
-			}
-			if avp.Type == "" {
-				var da *DictionaryAttribute
-				if avp.Name != "" {
-					da = p.dict.AttributeWithName(avp.Name, "")
-				} else if avp.Number != 0 {
-					da = p.dict.AttributeWithNumber(avp.Number, 0)
-				}
-				if da == nil {
-					return 0, fmt.Errorf("failed encoding avp: %+v, missing dictionary data", avp)
-				}
-				avp.Name = da.AttributeName
-				avp.Type = da.AttributeType
-				avp.Number = da.AttributeNumber
-			}
-			if avp.Number == VendorSpecific { // handle VSA differently
-				vsa, ok := avp.Value.(*VSA)
-				if !ok {
-					return 0, fmt.Errorf("failed encoding avp: %+v, cannot extract VSA", avp)
-				}
-				if vsa.RawValue == nil {
-					if vsa.Value == nil {
-						return 0, fmt.Errorf("failed encoding vsa: %+v, no value", vsa)
-					}
-					if vsa.Type == "" {
-						var da *DictionaryAttribute
-						if vsa.Name != "" {
-							if vsa.VendorName == "" {
-								if vndr := p.dict.VendorWithCode(vsa.Vendor); vndr == nil {
-									return 0, fmt.Errorf("failed encoding vsa: %+v, no vendor in dictionary", vsa)
-								} else {
-									vsa.VendorName = vndr.VendorName
-								}
-							}
-							da = p.dict.AttributeWithName(vsa.Name, vsa.VendorName)
-						} else if avp.Number != 0 {
-							da = p.dict.AttributeWithNumber(avp.Number, vsa.Vendor)
-						}
-						if da == nil {
-							return 0, fmt.Errorf("failed encoding vsa: %+v, missing dictionary data", vsa)
-						}
-						vsa.Name = da.AttributeName
-						vsa.Type = da.AttributeType
-						vsa.Number = da.AttributeNumber
-					}
-					if vsa.RawValue, err = ifaceToBytes(vsa.Type, vsa.Value); err != nil {
-						return
-					}
-				}
-				avp.RawValue = vsa.AVP().RawValue
-			} else if avp.RawValue, err = ifaceToBytes(avp.Type, avp.Value); err != nil {
-				return
+			if err := avp.SetRawValue(p.dict); err != nil {
+				return 0, err
 			}
 		}
-
 		n, err = avp.Encode(bb)
 		written += n
 		if err != nil {
@@ -179,6 +129,8 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 }
 
 func (p *Packet) Decode(buf []byte) error {
+	p.RLock()
+	defer p.RUnlock()
 	p.Code = PacketCode(buf[0])
 	p.Identifier = buf[1]
 	copy(p.Authenticator[:], buf[4:20])
@@ -196,17 +148,6 @@ func (p *Packet) Decode(buf []byte) error {
 		b = b[length:]
 	}
 	return nil
-}
-
-func (p *Packet) Attributes(attrNr uint8) []*AVP {
-	ret := []*AVP(nil)
-	for i, _ := range p.AVPs {
-		if p.AVPs[i].Number == attrNr {
-			ret = append(ret, p.AVPs[i])
-		}
-	}
-	return ret
-
 }
 
 func (p *Packet) Reply() *Packet {
@@ -230,4 +171,38 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, RawValue: []byte(errMsg)})
 	}
 	return
+}
+
+// Attributes queries AVPs matching the attrNr
+// if vendorCode is defined, AttributesWithNumber will query VSAs
+func (p *Packet) AttributesWithNumber(attrNr uint8, vendorCode uint32) (avps []*AVP) {
+	p.RLock()
+	defer p.RUnlock()
+	for _, avp := range p.AVPs {
+		if avp.Number == attrNr {
+			if err := avp.SetValue(p.dict); err != nil {
+				log.Printf("failed setting value for avp: %+v, err: %s\n", avp, err.Error())
+				continue
+			}
+			avps = append(avps, avp)
+		}
+	}
+	return
+}
+
+// Attributes queries AVPs matching the attrNr
+func (p *Packet) AttributesWithName(attrName, vendorName string) (avps []*AVP) {
+	da := p.dict.AttributeWithName(attrName, vendorName)
+	if da == nil {
+		return
+	}
+	var vc uint32
+	if vendorName != "" {
+		if dv := p.dict.VendorWithName(vendorName); dv == nil {
+			return
+		} else {
+			vc = dv.VendorNumber
+		}
+	}
+	return p.AttributesWithNumber(da.AttributeNumber, vc)
 }

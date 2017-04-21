@@ -45,39 +45,16 @@ func TestAVPSetValue(t *testing.T) {
 		Number:   uint8(4),                       // NASIPAddress
 		RawValue: []byte{0xc0, 0xa8, 0x01, 0x10}, // 192.168.1.16
 	}
-	da := &DictionaryAttribute{AttributeName: "NAS-IP-Address",
-		AttributeNumber: uint8(4),
-		AttributeType:   addressVal}
 	eAvp := &AVP{
 		Number:   avp.Number,   // NASIPAddress
 		RawValue: avp.RawValue, // 192.168.1.16
-		Name:     da.AttributeName,
-		Type:     da.AttributeType,
+		Name:     "NAS-IP-Address",
+		Type:     addressVal,
 		Value:    net.IP(avp.RawValue),
 	}
-	if err := avp.SetValue(da); err != nil {
+	if err := avp.SetValue(RFC2865Dictionary()); err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(eAvp.Value, avp.Value) {
-		t.Errorf("Expecting: %+v, received: %+v", eAvp, avp)
-	}
-	avp = &AVP{
-		Number:   uint8(4),                       // NASIPAddress
-		RawValue: []byte{0xc0, 0xa8, 0x01, 0x10}, // 192.168.1.16
-	}
-	da = &DictionaryAttribute{
-		AttributeNumber: uint8(4),
-		AttributeName:   "SomeOtherName",
-		AttributeType:   "some_other_type"}
-	eAvp = &AVP{
-		Number:   avp.Number,   // NASIPAddress
-		RawValue: avp.RawValue, // 192.168.1.16
-		Name:     errUnsupportedAttributeType.Error(),
-		Type:     da.AttributeType,
-		Value:    avp.RawValue,
-	}
-	if err := avp.SetValue(da); err != nil {
-		t.Error(err)
-	} else if !reflect.DeepEqual(eAvp, avp) {
 		t.Errorf("Expecting: %+v, received: %+v", eAvp, avp)
 	}
 }
