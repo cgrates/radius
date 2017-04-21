@@ -58,6 +58,7 @@ func (a *AVP) SetValue(da *DictionaryAttribute) (err error) {
 			return err
 		}
 		a.Name = errUnsupportedAttributeType.Error()
+		err = nil
 	} else {
 		a.Name = da.AttributeName
 	}
@@ -116,6 +117,7 @@ func (vsa *VSA) SetValue(da *DictionaryAttribute) (err error) {
 			return err
 		}
 		vsa.Name = errUnsupportedAttributeType.Error()
+		err = nil
 	} else {
 		vsa.Name = da.AttributeName
 	}
