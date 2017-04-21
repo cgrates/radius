@@ -4,6 +4,8 @@ RADIUS library for Go language.
 
 Provides both Client and Server functionality, both asynchronous and thread safe.
 
+Support for both UDP and TCP as transports.
+
 Support for Vendor Specific Attributes.
 
 Support for client based secret and dictionaries.
@@ -37,6 +39,7 @@ func main() {
 		map[string]string{"127.0.0.1": "CGRateS.org"},
 		map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()},
 		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}).ListenAndServe()
+
 	// Start RADIUS ACCT Server
 	go NewServer("tcp", "localhost:1813",
 		map[string]string{"127.0.0.1": "CGRateS.org"},
@@ -48,13 +51,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not connect to RAD-AUTH server, error: %s", err.Error())
 	}
+
+	// Send request
 	req := &Packet{
 		Code:       AccessRequest,
 		Identifier: 1,
 		AVPs: []*AVP{
 			&AVP{
-				Number:   uint8(1),                                   // User-Name
-				RawValue: []byte{0x66, 0x6c, 0x6f, 0x70, 0x73, 0x79}, // flopsy
+				Name:  "User-Name",
+				Value: "flopsy",
+			},
+			&AVP{
+				Number: VendorSpecific,
+				Value: &VSA{
+					VendorName: "Cisco",
+					Name:       "Cisco-NAS-Port",
+					Value:      "CGR1",
+				},
 			},
 		},
 	}

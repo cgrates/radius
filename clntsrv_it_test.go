@@ -6,6 +6,7 @@ Integration tests between radigo client and server
 package radigo
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -15,17 +16,23 @@ var (
 
 func handleAuth(req *Packet) (rpl *Packet, err error) {
 	rpl = req.Reply()
+	for _, avp := range req.AVPs {
+		rpl.AVPs = append(rpl.AVPs, avp)
+	}
 	rpl.Code = AccessAccept
 	return
 }
 
 func handleAcct(req *Packet) (rpl *Packet, err error) {
 	rpl = req.Reply()
+	for _, avp := range req.AVPs {
+		rpl.AVPs = append(rpl.AVPs, avp)
+	}
 	rpl.Code = AccountingResponse
 	return
 }
 
-func init() {
+func TestRadServerStart(t *testing.T) {
 	freeRADIUSDocDictSample := `
 # Most of the lines are copied from freeradius documentation here:
 # http://networkradius.com/doc/3.0.10/concepts/dictionary/introduction.html
@@ -63,7 +70,7 @@ END-VENDOR      Cisco
 }
 
 func TestRadClientAuth(t *testing.T) {
-	authClnt, err := NewClient("tcp", "localhost:1812", "CGRateS.org", RFC2865Dictionary(), 0)
+	authClnt, err := NewClient("tcp", "localhost:1812", "CGRateS.org", dict, 0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -74,6 +81,14 @@ func TestRadClientAuth(t *testing.T) {
 			&AVP{
 				Name:  "User-Name",
 				Value: "flopsy",
+			},
+			&AVP{
+				Number: VendorSpecific,
+				Value: &VSA{
+					VendorName: "Cisco",
+					Name:       "Cisco-NAS-Port",
+					Value:      "CGR1",
+				},
 			},
 		},
 	}
@@ -89,23 +104,21 @@ func TestRadClientAccount(t *testing.T) {
 		Code:       AccountingRequest,
 		Identifier: 2,
 		AVPs: []*AVP{
-			AVPs: []*AVP{
-				&AVP{
-					Name:  "User-Name",
-					Value: "flopsy",
-				},
-				&AVP{
-					Number: VendorSpecific,
-					Value: &VSA{
-						VendorName: "Cisco",
-						Name:       "Cisco-NAS-Port",
-						Value:      "CGR1",
-					},
+			&AVP{
+				Name:  "User-Name",
+				Value: "flopsy",
+			},
+			&AVP{
+				Number: VendorSpecific,
+				Value: &VSA{
+					VendorName: "Cisco",
+					Name:       "Cisco-NAS-Port",
+					Value:      "CGR1",
 				},
 			},
 		},
 	}
-	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", RFC2865Dictionary(), 0)
+	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", dict, 0)
 	if err != nil {
 		t.Error(err)
 	}

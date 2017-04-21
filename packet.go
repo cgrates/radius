@@ -119,7 +119,7 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 					da = p.dict.AttributeWithNumber(avp.Number, 0)
 				}
 				if da == nil {
-					return 0, fmt.Errorf("failed encoding avp: %+v, no dictionary info", avp)
+					return 0, fmt.Errorf("failed encoding avp: %+v, missing dictionary data", avp)
 				}
 				avp.Name = da.AttributeName
 				avp.Type = da.AttributeType
@@ -149,7 +149,7 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 							da = p.dict.AttributeWithNumber(avp.Number, vsa.Vendor)
 						}
 						if da == nil {
-							return 0, fmt.Errorf("failed encoding vsa: %+v, no dictionary info", vsa)
+							return 0, fmt.Errorf("failed encoding vsa: %+v, missing dictionary data", vsa)
 						}
 						vsa.Name = da.AttributeName
 						vsa.Type = da.AttributeType

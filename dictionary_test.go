@@ -177,7 +177,7 @@ END-VENDOR      Cisco
 	}
 }
 
-func TestDictionaryAttributeWith(t *testing.T) {
+func TestDictionaryQueries(t *testing.T) {
 	dict := &Dictionary{
 		ac: map[uint32]map[uint8]*DictionaryAttribute{
 			NoVendor: map[uint8]*DictionaryAttribute{
@@ -304,6 +304,26 @@ func TestDictionaryAttributeWith(t *testing.T) {
 		t.Error("no attribute found")
 	} else if !reflect.DeepEqual(eDA, da) {
 		t.Errorf("Expecting: %+v, received: %+v", eDA, da)
+	}
+	eDV := &DictionaryVendor{
+		VendorName:   "Cisco",
+		VendorNumber: 9,
+	}
+	if dv := dict.VendorWithCode(9); dv == nil {
+		t.Error("no vendor found")
+	} else if !reflect.DeepEqual(eDV, dv) {
+		t.Errorf("Expecting: %+v, received: %+v", eDV, dv)
+	}
+	if dv := dict.VendorWithCode(7); dv != nil {
+		t.Error("vendor found")
+	}
+	if dv := dict.VendorWithName("Cisco"); dv == nil {
+		t.Error("no vendor found")
+	} else if !reflect.DeepEqual(eDV, dv) {
+		t.Errorf("Expecting: %+v, received: %+v", eDV, dv)
+	}
+	if dv := dict.VendorWithName("SomeOther"); dv != nil {
+		t.Error("vendor found")
 	}
 }
 
