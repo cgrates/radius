@@ -273,8 +273,7 @@ func (dict *Dictionary) ParseFromFolder(dirPath string) (err error) {
 	} else if !fi.IsDir() {
 		return fmt.Errorf("path: %s not a directory.", dirPath)
 	}
-	var fileFound bool
-	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			return nil
 		}
@@ -285,7 +284,6 @@ func (dict *Dictionary) ParseFromFolder(dirPath string) (err error) {
 		if dictFiles == nil { // No need of processing further since there are no config files in the folder
 			return nil
 		}
-		fileFound = true
 		for _, dictFilePath := range dictFiles {
 			if file, err := os.Open(dictFilePath); err != nil {
 				return err
@@ -295,12 +293,6 @@ func (dict *Dictionary) ParseFromFolder(dirPath string) (err error) {
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	} else if !fileFound {
-		return fmt.Errorf("no dictionary file on path <%s>", dirPath)
-	}
-	return nil
 }
 
 // DictionaryAttribute queries Dictionary for Attribute having specific number
