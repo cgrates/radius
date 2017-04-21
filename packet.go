@@ -178,11 +178,23 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 func (p *Packet) AttributesWithNumber(attrNr uint8, vendorCode uint32) (avps []*AVP) {
 	p.RLock()
 	defer p.RUnlock()
+	qryNr := attrNr
+	if vendorCode != NoVendor {
+		qryNr = VendorSpecific
+	}
 	for _, avp := range p.AVPs {
-		if avp.Number == attrNr {
+		if avp.Number == qryNr {
 			if err := avp.SetValue(p.dict); err != nil {
 				log.Printf("failed setting value for avp: %+v, err: %s\n", avp, err.Error())
 				continue
+			}
+			if vendorCode != NoVendor {
+				if vsa, ok := avp.Value.(*VSA); !ok {
+					log.Printf("failed converting VSA value for AVP: %+v\n", avp)
+					continue
+				} else if vsa.Number != attrNr {
+					continue
+				}
 			}
 			avps = append(avps, avp)
 		}

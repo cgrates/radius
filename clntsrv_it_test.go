@@ -102,6 +102,16 @@ func TestRadClientAuth(t *testing.T) {
 	if len(reply.AVPs) != len(req.AVPs) {
 		t.Errorf("Expecting: %+v, received: %+v", req.AVPs, reply.AVPs)
 	}
+	if avps := reply.AttributesWithName("User-Name", ""); len(avps) != 1 {
+		t.Errorf("Unexpected AVPs: %+v", avps)
+	} else if req.AVPs[0].Name != avps[0].Name {
+		t.Errorf("Expecting: %+v, received: %+v", req.AVPs[0].Name, avps[0].Name)
+	}
+	if avps := reply.AttributesWithName("Cisco-NAS-Port", "Cisco"); len(avps) != 1 {
+		t.Errorf("Unexpected AVPs: %+v", avps)
+	} else if req.AVPs[1].Name != avps[0].Name {
+		t.Errorf("Expecting: %+v, received: %+v", req.AVPs[1].Name, avps[0].Name)
+	}
 }
 
 func TestRadClientAccount(t *testing.T) {
