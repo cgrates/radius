@@ -39,7 +39,7 @@ func sendReply(synConn *syncedConn, rply *Packet) (err error) {
 
 func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary,
 	reqHandlers map[PacketCode]func(*Packet) (*Packet, error)) *Server {
-	return &Server{net, addr, secrets, dicts, reqHandlers}
+	return &Server{net: net, addr: addr, secrets: secrets, dicts: dicts, reqHandlers: reqHandlers}
 }
 
 // Server represents a single listener on a port
@@ -47,8 +47,11 @@ type Server struct {
 	net         string                                        // tcp, udp ...
 	addr        string                                        // host:port or :port
 	secrets     map[string]string                             // client bounded secrets, *default for server wide
+	scrtMux     sync.RWMutex                                  // protects secrets
 	dicts       map[string]*Dictionary                        // client bounded dictionaries, *default for server wide
+	dMux        sync.RWMutex                                  // protects dicts
 	reqHandlers map[PacketCode]func(*Packet) (*Packet, error) // map[PacketCode]handler, 0 for default
+	rhMux       sync.RWMutex                                  // protects reqHandlers
 }
 
 // handleConnection will listen on a single inbound connection for packets
@@ -74,22 +77,29 @@ func (s *Server) handleConnection(synConn *syncedConn) {
 			synConn.conn.Close()
 			return
 		}
+
+		s.scrtMux.RLock()
 		secret, hasKey := s.secrets[clntID]
 		if !hasKey {
 			secret = s.secrets[MetaDefault]
 		}
+		s.scrtMux.RUnlock()
+
+		s.dMux.RLock()
 		dict, hasKey := s.dicts[clntID]
 		if !hasKey {
 			dict = s.dicts[MetaDefault]
 		}
+		s.dMux.RUnlock()
 
 		pkt := &Packet{secret: secret, dict: dict}
 		if err = pkt.Decode(b[:n]); err != nil {
 			log.Printf("error: <%s> when decoding packet", err.Error())
 			continue
 		}
-
+		s.rhMux.RLock()
 		hndlr, hasKey := s.reqHandlers[pkt.Code]
+		s.rhMux.RUnlock()
 		var rply *Packet
 		if !hasKey {
 			log.Printf("error: <no handler for packet with code: %d>", pkt.Code)
@@ -112,6 +122,12 @@ func (s *Server) handleConnection(synConn *syncedConn) {
 		}()
 
 	}
+}
+
+func (s *Server) RegisterHandler(code PacketCode, hndlr func(*Packet) (*Packet, error)) {
+	s.rhMux.Lock()
+	s.reqHandlers[code] = hndlr
+	s.rhMux.Unlock()
 }
 
 func (s *Server) ListenAndServe() error {
