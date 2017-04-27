@@ -2,6 +2,7 @@ package radigo
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -12,29 +13,67 @@ const (
 	MetaDefault = "*default" // default client
 )
 
-// syncedConn queues replies
-type syncedConn struct {
-	sync.RWMutex
-	conn net.Conn
+func connIDFromAddr(addr string) (connID string) {
+	if idx := strings.Index(addr, "]:"); idx != -1 {
+		connID = addr[1:idx] // ipv6 addr
+	} else {
+		connID = strings.Split(addr, ":")[0] // most likely ipv4 addr
+	}
+	return
 }
 
-type requestOriginator struct {
-	req     *Packet
-	synConn *syncedConn
+// syncedTCPConn writes replies over a TCP connection
+type syncedTCPConn struct {
+	sync.Mutex
+	connID string
+	conn   net.Conn
+}
+
+func (c *syncedTCPConn) getConnID() string {
+	return c.connID
+}
+
+func (c *syncedTCPConn) write(b []byte) (err error) {
+	c.Lock()
+	_, err = c.conn.Write(b)
+	c.Unlock()
+	return
+}
+
+// syncedUDPConn write replies over a UDP connection
+type syncedUDPConn struct {
+	sync.Mutex
+	connID string
+	addr   net.Addr
+	pc     net.PacketConn
+}
+
+func (c *syncedUDPConn) getConnID() string {
+	return c.connID
+}
+
+func (c *syncedUDPConn) write(b []byte) (err error) {
+	c.Lock()
+	_, err = c.pc.WriteTo(b, c.addr)
+	c.Unlock()
+	return
+}
+
+// syncedConn is the interface for securely writing on both UDP and TCP connections
+type syncedConn interface {
+	getConnID() string
+	write([]byte) error
 }
 
 // sendReply writes the reply over the synced connection
-func sendReply(synConn *syncedConn, rply *Packet) (err error) {
-	var buf [4096]byte
+func sendReply(synConn syncedConn, rply *Packet) (err error) {
+	var buf [1024]byte
 	var n int
 	n, err = rply.Encode(buf[:])
 	if err != nil {
 		return
 	}
-	synConn.Lock()
-	_, err = synConn.conn.Write(buf[:n])
-	synConn.Unlock()
-	return
+	return synConn.write(buf[:n])
 }
 
 func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary,
@@ -54,85 +93,113 @@ type Server struct {
 	rhMux       sync.RWMutex                                  // protects reqHandlers
 }
 
-// handleConnection will listen on a single inbound connection for packets
-// disconnects on error or unexpected packet length
-// calls the handler synchronously and returns it's answer
-func (s *Server) handleConnection(synConn *syncedConn) {
-	remoteAddr := synConn.conn.RemoteAddr().String()
-	var clntID string // IP of the client which should apply special secret or dictionary
-	if idx := strings.Index(remoteAddr, "]:"); idx != -1 {
-		clntID = remoteAddr[1:idx] // ipv6 addr
-	} else {
-		clntID = strings.Split(remoteAddr, ":")[0] // most likely ipv4 addr
-	}
-	for {
-		var b [4096]byte
-		n, err := synConn.conn.Read(b[:])
-		if err != nil {
-			log.Printf("error: <%s> when reading packets, disconnecting...", err.Error())
-			synConn.conn.Close()
-			return
-		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
-			log.Printf("error: unexpected packet length, disconnecting...")
-			synConn.conn.Close()
-			return
-		}
-
-		s.scrtMux.RLock()
-		secret, hasKey := s.secrets[clntID]
-		if !hasKey {
-			secret = s.secrets[MetaDefault]
-		}
-		s.scrtMux.RUnlock()
-
-		s.dMux.RLock()
-		dict, hasKey := s.dicts[clntID]
-		if !hasKey {
-			dict = s.dicts[MetaDefault]
-		}
-		s.dMux.RUnlock()
-
-		pkt := &Packet{secret: secret, dict: dict}
-		if err = pkt.Decode(b[:n]); err != nil {
-			log.Printf("error: <%s> when decoding packet", err.Error())
-			continue
-		}
-		s.rhMux.RLock()
-		hndlr, hasKey := s.reqHandlers[pkt.Code]
-		s.rhMux.RUnlock()
-		var rply *Packet
-		if !hasKey {
-			log.Printf("error: <no handler for packet with code: %d>", pkt.Code)
-			rply = pkt.NegativeReply("no handler")
-			go func() {
-				if err := sendReply(synConn, rply); err != nil {
-					log.Printf("error: <%s> sending reply", err.Error())
-				}
-			}()
-			continue
-		}
-		go func() { // execute the handler asynchronously
-			rply, err := hndlr(pkt)
-			if err != nil {
-				rply = pkt.NegativeReply(err.Error())
-			}
-			if err := sendReply(synConn, rply); err != nil {
-				log.Printf("error: <%s> sending reply", err.Error())
-			}
-		}()
-
-	}
-}
-
+// RegisterHandler registers a new handler after the server was instantiated
 func (s *Server) RegisterHandler(code PacketCode, hndlr func(*Packet) (*Packet, error)) {
 	s.rhMux.Lock()
 	s.reqHandlers[code] = hndlr
 	s.rhMux.Unlock()
 }
 
-func (s *Server) ListenAndServe() error {
-	ln, err := net.Listen(s.net, s.addr)
+// handleRcvBytes is common method for both udp and tcp to handle received bytes over network
+func (s *Server) handleRcvedBytes(rcv []byte, synConn syncedConn) {
+	s.scrtMux.RLock()
+	secret, hasKey := s.secrets[synConn.getConnID()]
+	if !hasKey {
+		secret = s.secrets[MetaDefault]
+	}
+	s.scrtMux.RUnlock()
+
+	s.dMux.RLock()
+	dict, hasKey := s.dicts[synConn.getConnID()]
+	if !hasKey {
+		dict = s.dicts[MetaDefault]
+	}
+	s.dMux.RUnlock()
+
+	pkt := &Packet{secret: secret, dict: dict}
+	if err := pkt.Decode(rcv); err != nil {
+		log.Printf("error: <%s> when decoding packet", err.Error())
+		return
+	}
+	s.rhMux.RLock()
+	hndlr, hasKey := s.reqHandlers[pkt.Code]
+	s.rhMux.RUnlock()
+	var rply *Packet
+	if !hasKey {
+		log.Printf("error: <no handler for packet with code: %d>", pkt.Code)
+		rply = pkt.NegativeReply("no handler")
+		go func() {
+			if err := sendReply(synConn, rply); err != nil {
+				log.Printf("error: <%s> sending reply", err.Error())
+			}
+		}()
+		return
+	}
+	go func() { // execute the handler asynchronously
+		rply, err := hndlr(pkt)
+		if err != nil {
+			rply = pkt.NegativeReply(err.Error())
+		}
+		if rply == nil {
+			log.Printf("warning: empty reply received from handler")
+			return
+		}
+		if err := sendReply(synConn, rply); err != nil {
+			log.Printf("error: <%s> sending reply", err.Error())
+		}
+	}()
+}
+
+// handleConnection will listen on a single inbound connection for packets
+// disconnects on error or unexpected packet length
+// calls the handler synchronously and returns it's answer
+func (s *Server) handleTCPConn(conn net.Conn) {
+	synConn := &syncedTCPConn{conn: conn,
+		connID: connIDFromAddr(conn.RemoteAddr().String())}
+	for {
+		var b [1024]byte
+		n, err := conn.Read(b[:])
+		if err != nil {
+			log.Printf("error: <%s> when reading packets, disconnecting...", err.Error())
+			conn.Close()
+			return
+		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
+			log.Printf("error: unexpected packet length, disconnecting...")
+			conn.Close()
+			return
+		}
+		s.handleRcvedBytes(b[:n], synConn)
+	}
+}
+
+func (s *Server) listenAndServeUDP() error {
+	pc, err := net.ListenPacket("udp", s.addr)
 	if err != nil {
+		return err
+	}
+	defer pc.Close()
+	for {
+		var b [1024]byte
+		n, addr, err := pc.ReadFrom(b[:])
+		if err != nil {
+			log.Printf("error: <%s> when reading packets over udp", err.Error())
+			continue
+		}
+		if err != nil {
+			log.Printf("error: <%s> when reading packets over udp", err.Error())
+			continue
+		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
+			log.Printf("error: unexpected packet length received over UDP")
+		}
+		s.handleRcvedBytes(b[:n],
+			&syncedUDPConn{connID: connIDFromAddr(addr.String()), addr: addr, pc: pc})
+	}
+}
+
+func (s *Server) listenAndServeTCP() error {
+	ln, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		log.Printf("RadiusServer, ListenAndServe, err %s\n", err.Error())
 		return err
 	}
 	for {
@@ -141,7 +208,19 @@ func (s *Server) ListenAndServe() error {
 			log.Printf("error: <%s>, when establishing new connection", err.Error())
 			continue
 		}
-		go s.handleConnection(&syncedConn{conn: conn})
+		go s.handleTCPConn(conn)
 	}
 	return nil
+}
+
+// ListenAndServe binds to a port and serves requests
+func (s *Server) ListenAndServe() error {
+	switch s.net {
+	case "udp":
+		return s.listenAndServeUDP()
+	case "tcp":
+		return s.listenAndServeTCP()
+	default:
+		return fmt.Errorf("unsupported network: <%s>", s.net)
+	}
 }
