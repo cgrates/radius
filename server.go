@@ -7,6 +7,8 @@ import (
 	"net"
 	"strings"
 	"sync"
+
+	"github.com/cgrates/radigo/codecs"
 )
 
 const (
@@ -77,7 +79,11 @@ func sendReply(synConn syncedConn, rply *Packet) (err error) {
 }
 
 func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary,
-	reqHandlers map[PacketCode]func(*Packet) (*Packet, error)) *Server {
+	reqHandlers map[PacketCode]func(*Packet) (*Packet, error), avpCoders map[string]codecs.AVPCoder) *Server {
+	coder := NewCoder()
+	for k, v := range avpCoders {
+		coder[k] = v
+	}
 	return &Server{net: net, addr: addr, secrets: secrets, dicts: dicts, reqHandlers: reqHandlers}
 }
 
@@ -90,6 +96,7 @@ type Server struct {
 	dicts       map[string]*Dictionary                        // client bounded dictionaries, *default for server wide
 	dMux        sync.RWMutex                                  // protects dicts
 	reqHandlers map[PacketCode]func(*Packet) (*Packet, error) // map[PacketCode]handler, 0 for default
+	coder       Coder                                         // codecs for AVP values
 	rhMux       sync.RWMutex                                  // protects reqHandlers
 }
 
@@ -116,7 +123,7 @@ func (s *Server) handleRcvedBytes(rcv []byte, synConn syncedConn) {
 	}
 	s.dMux.RUnlock()
 
-	pkt := &Packet{secret: secret, dict: dict}
+	pkt := &Packet{secret: secret, dict: dict, coder: s.coder}
 	if err := pkt.Decode(rcv); err != nil {
 		log.Printf("error: <%s> when decoding packet", err.Error())
 		return

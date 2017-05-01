@@ -93,6 +93,7 @@ func (p *Packet) Has(attrNr uint8) bool {
 type Packet struct {
 	sync.RWMutex
 	dict          *Dictionary
+	coder         Coder // handles coding/encoding of AVP values
 	secret        string
 	Code          PacketCode
 	Identifier    uint8
@@ -111,7 +112,7 @@ func (p *Packet) Encode(b []byte) (n int, err error) {
 	bb := b[20:]
 	for _, avp := range p.AVPs {
 		if avp.RawValue == nil { // Need to encode concrete into raw
-			if err := avp.SetRawValue(p.dict); err != nil {
+			if err := avp.SetRawValue(p.dict, p.coder); err != nil {
 				return 0, err
 			}
 		}
@@ -179,12 +180,12 @@ func (p *Packet) AttributesWithNumber(attrNr uint8, vendorCode uint32) (avps []*
 	p.RLock()
 	defer p.RUnlock()
 	qryNr := attrNr
-	if vendorCode != NoVendor {
+	if vendorCode != NoVendor { // if vendor is not 0 we will emulate query on VendorSpecific number and consider sub
 		qryNr = VendorSpecific
 	}
 	for _, avp := range p.AVPs {
 		if avp.Number == qryNr {
-			if err := avp.SetValue(p.dict); err != nil {
+			if err := avp.SetValue(p.dict, p.coder); err != nil {
 				log.Printf("failed setting value for avp: %+v, err: %s\n", avp, err.Error())
 				continue
 			}
@@ -217,4 +218,12 @@ func (p *Packet) AttributesWithName(attrName, vendorName string) (avps []*AVP) {
 		}
 	}
 	return p.AttributesWithNumber(da.AttributeNumber, vc)
+}
+
+func (p *Packet) AddAVPWithNumber(attrNr uint8, vendorCode uint32, val interface{}) (err error) {
+	return
+}
+
+func (p *Packet) AddAVPWithName(attrName, vendorName, strVal string) (err error) {
+	return
 }

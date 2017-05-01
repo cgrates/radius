@@ -20,14 +20,16 @@ const (
 	EndVendorKeyword   = "END-VENDOR"
 	IncludeFileKeyword = "$INCLUDE"
 	// rfc2865 value Formats
-	textVal    = "text"
-	stringVal  = "string"
-	addressVal = "address"
-	integerVal = "integer"
-	timeVal    = "time"
-	ipaddrVal  = "ipaddr"
-	unknownVal = "unknown"
+	TextValue    = "text"
+	StringValue  = "string"
+	AddressValue = "address"
+	IntegerValue = "integer"
+	TimeValue    = "time"
+	IPAddrValue  = "ipaddr"
+	UnknownValue = "unknown"
 )
+
+var ErrUnsupportedAttributeType = errors.New("unsupported attribute type")
 
 var RFC2865Dict = `
 # Originally copied from FreeRADIUS dictionary

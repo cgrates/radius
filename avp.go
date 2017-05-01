@@ -4,21 +4,18 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"net"
-	"sync"
-	"time"
-	"unicode/utf8"
+	//	"net"
+	//	"time"
+	//	"unicode/utf8"
 )
 
-var errUnsupportedAttributeType = errors.New("unsupported attribute type")
-
 type AVP struct {
-	sync.RWMutex
-	Number   uint8       // attribute number
-	RawValue []byte      // original value as byte
-	Name     string      // attribute name
-	Type     string      // type of the value helping us to convert to concrete
-	Value    interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string) or avp.Value.(*VSA))
+	Number      uint8       // attribute number
+	Name        string      // attribute name
+	Type        string      // type of the value helping us to convert to concrete
+	RawValue    []byte      // original value as byte
+	Value       interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string) or avp.Value.(*VSA))
+	StringValue string      // stores the string value for convenience and pretty print
 }
 
 func (a *AVP) Encode(b []byte) (n int, err error) {
@@ -34,22 +31,20 @@ func (a *AVP) Encode(b []byte) (n int, err error) {
 
 // SetValue populates Value with concrete data based on raw one
 // abandons in case of Value already set
-func (a *AVP) SetValue(dict *Dictionary) (err error) {
+func (a *AVP) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	if a.Value != nil { // already set
 		return
 	}
-	a.Lock()
-	defer a.Unlock()
 	if a.Number == VendorSpecific { // Special handling of VSA values
 		vsa, err := NewVSAFromAVP(a)
 		if err != nil {
 			return err
 		}
-		if err := vsa.SetValue(dict); err != nil {
+		if err := vsa.SetValue(dict, cdr); err != nil {
 			return err
 		}
 		a.Name = "Vendor-Specific"
-		a.Type = stringVal
+		a.Type = StringValue
 		a.Value = vsa
 		return nil
 	}
@@ -57,28 +52,27 @@ func (a *AVP) SetValue(dict *Dictionary) (err error) {
 	if da == nil {
 		return fmt.Errorf("no dictionary data for avp: %+v", a)
 	}
-	val, err := decodeAVPValue(da.AttributeType, a.RawValue)
+	val, strVal, err := cdr.Decode(da.AttributeType, a.RawValue)
 	if err != nil {
-		if err != errUnsupportedAttributeType {
+		if err != ErrUnsupportedAttributeType {
 			return err
 		}
-		a.Name = errUnsupportedAttributeType.Error()
+		a.Name = ErrUnsupportedAttributeType.Error()
 		err = nil
 	} else {
 		a.Name = da.AttributeName
 	}
 	a.Type = da.AttributeType
 	a.Value = val
+	a.StringValue = strVal
 	return
 }
 
 // SetRawValue will set the raw value (wire ready) from concrete one stored in interface
-func (a *AVP) SetRawValue(dict *Dictionary) (err error) {
+func (a *AVP) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 	if a.RawValue != nil {
 		return
 	}
-	a.Lock()
-	defer a.Unlock()
 	if a.Value == nil {
 		return fmt.Errorf("avp: %+v, no value", a)
 	}
@@ -101,12 +95,16 @@ func (a *AVP) SetRawValue(dict *Dictionary) (err error) {
 		if !ok {
 			return fmt.Errorf("%+v, cannot extract VSA", a)
 		}
-		if err := vsa.SetRawValue(dict); err != nil {
+		if err := vsa.SetRawValue(dict, cdr); err != nil {
 			return err
 		}
 		a.RawValue = vsa.AVP().RawValue
-	} else if a.RawValue, err = ifaceToBytes(a.Type, a.Value); err != nil {
 		return
+	}
+	if rawVal, err := cdr.Encode(a.Type, a.Value); err != nil {
+		return err
+	} else {
+		a.RawValue = rawVal
 	}
 	return nil
 }
@@ -126,14 +124,14 @@ func NewVSAFromAVP(avp *AVP) (*VSA, error) {
 // Vendor specific Attribute/Val
 // originally ported from github.com/bronze1man/radius/avp_vendor.go
 type VSA struct {
-	sync.RWMutex
-	Vendor     uint32
-	Number     uint8       // attribute number
-	RawValue   []byte      // value as received over network
-	VendorName string      // populated by dictionary
-	Name       string      // attribute name
-	Type       string      // type of the value helping us to convert to concrete
-	Value      interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
+	Vendor      uint32
+	Number      uint8       // attribute number
+	VendorName  string      // populated by dictionary
+	Name        string      // attribute name
+	Type        string      // type of the value helping us to convert to concrete
+	Value       interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
+	RawValue    []byte      // value as received over network
+	StringValue string      // stores the string value
 }
 
 // AVP encodes VSA back into AVP
@@ -149,33 +147,32 @@ func (vsa *VSA) AVP() *AVP {
 }
 
 // SetValue populates Value elements based on vsa.RawValue
-func (vsa *VSA) SetValue(dict *Dictionary) (err error) {
+func (vsa *VSA) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	if vsa.Value != nil { // already set, maybe in application
 		return
 	}
-	vsa.Lock()
-	defer vsa.Unlock()
 	da := dict.AttributeWithNumber(vsa.Number, vsa.Vendor)
 	if da == nil {
 		return fmt.Errorf("no dictionary data for vsa: %+v", vsa)
 	}
-	val, err := decodeAVPValue(da.AttributeType, vsa.RawValue)
+	val, strVal, err := cdr.Decode(da.AttributeType, vsa.RawValue)
 	if err != nil {
-		if err != errUnsupportedAttributeType {
+		if err != ErrUnsupportedAttributeType {
 			return err
 		}
-		vsa.Name = errUnsupportedAttributeType.Error()
+		vsa.Name = ErrUnsupportedAttributeType.Error()
 		err = nil
 	} else {
 		vsa.Name = da.AttributeName
 	}
 	vsa.Type = da.AttributeType
 	vsa.Value = val
+	vsa.StringValue = strVal
 	return
 }
 
 // SetRawValue populates RawValue(wire data) based on concrete stored in vsa.Value
-func (vsa *VSA) SetRawValue(dict *Dictionary) (err error) {
+func (vsa *VSA) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 	if vsa.RawValue != nil { // already set
 		return
 	}
@@ -203,19 +200,24 @@ func (vsa *VSA) SetRawValue(dict *Dictionary) (err error) {
 		vsa.Type = da.AttributeType
 		vsa.Number = da.AttributeNumber
 	}
-	vsa.RawValue, err = ifaceToBytes(vsa.Type, vsa.Value)
+	if rawVal, err := cdr.Encode(vsa.Type, vsa.Value); err != nil {
+		return err
+	} else {
+		vsa.RawValue = rawVal
+	}
 	return
 }
 
+/*
 // decodeAVPValue converts raw bytes received over the network into concrete Go datatype
 func decodeAVPValue(valType string, rawValue []byte) (interface{}, error) {
 	switch valType {
-	case textVal:
+	case TextValue:
 		if !utf8.Valid(rawValue) {
 			return nil, errors.New("not valid UTF-8")
 		}
 		return string(rawValue), nil
-	case stringVal:
+	case S:
 		return string(rawValue), nil
 	case integerVal:
 		return binary.BigEndian.Uint32(rawValue), nil
@@ -273,3 +275,4 @@ func ifaceToBytes(valType string, val interface{}) ([]byte, error) {
 		return rawVal, nil
 	}
 }
+*/
