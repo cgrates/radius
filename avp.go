@@ -4,9 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	//	"net"
-	//	"time"
-	//	"unicode/utf8"
 )
 
 type AVP struct {
@@ -207,72 +204,3 @@ func (vsa *VSA) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 	}
 	return
 }
-
-/*
-// decodeAVPValue converts raw bytes received over the network into concrete Go datatype
-func decodeAVPValue(valType string, rawValue []byte) (interface{}, error) {
-	switch valType {
-	case TextValue:
-		if !utf8.Valid(rawValue) {
-			return nil, errors.New("not valid UTF-8")
-		}
-		return string(rawValue), nil
-	case S:
-		return string(rawValue), nil
-	case integerVal:
-		return binary.BigEndian.Uint32(rawValue), nil
-	case ipaddrVal, addressVal:
-		//v := make([]byte, len(rawValue))
-		//copy(v, rawValue)
-		return net.IP(rawValue), nil
-	case timeVal:
-		return time.Unix(int64(binary.BigEndian.Uint32(rawValue)), 0), nil
-	default: // unknown value, will be decoded upstream most probably
-		return rawValue, errUnsupportedAttributeType
-	}
-}
-
-// ifaceToBytes converts the concrete Go value in AVP into []byte stream ready to be sent over network
-func ifaceToBytes(valType string, val interface{}) ([]byte, error) {
-	switch valType {
-	case textVal, stringVal:
-		strVal, ok := val.(string)
-		if !ok {
-			return nil, errors.New("cannot cast to string")
-		}
-		return []byte(strVal), nil
-	case integerVal:
-		intVal, ok := val.(uint32)
-		if !ok {
-			return nil, errors.New("cannot cast to uint32")
-		}
-		rawVal := make([]byte, 4)
-		binary.BigEndian.PutUint32(rawVal, intVal)
-		return rawVal, nil
-	case ipaddrVal, addressVal:
-		ipVal, ok := val.(net.IP)
-		if !ok {
-			return nil, errors.New("cannot cast to net.IP")
-		}
-		ipVal = ipVal.To4()
-		if ipVal == nil {
-			return nil, errors.New("cannot enforce IPv4")
-		}
-		return []byte(ipVal), nil
-	case timeVal:
-		tmstmpVal, ok := val.(time.Time)
-		if !ok {
-			return nil, errors.New("cannot cast to time.Time")
-		}
-		rawVal := make([]byte, 4)
-		binary.BigEndian.PutUint32(rawVal, uint32(tmstmpVal.Unix()))
-		return rawVal, nil
-	default:
-		rawVal, ok := val.([]byte)
-		if !ok {
-			return nil, errors.New("cannot cast unknown value to []byte")
-		}
-		return rawVal, nil
-	}
-}
-*/

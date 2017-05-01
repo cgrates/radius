@@ -7,8 +7,11 @@ import (
 func NewCoder() Coder {
 	return Coder{
 		StringValue:  codecs.StringCodec{},
+		TextValue:    codecs.TextCodec{},
 		AddressValue: codecs.AddressCodec{},
 		IPAddrValue:  codecs.AddressCodec{},
+		IntegerValue: codecs.IntegerCodec{},
+		TimeValue:    codecs.TimeCodec{},
 	}
 }
 
