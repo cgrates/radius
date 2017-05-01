@@ -36,3 +36,11 @@ func (cdr Coder) Encode(attrType string, v interface{}) (b []byte, err error) {
 	}
 	return cdr[attrType].Encode(v)
 }
+
+func (cdr Coder) EncodeString(attrType, strVal string) (b []byte, err error) {
+	if _, has := cdr[attrType]; !has {
+		err = ErrUnsupportedAttributeType
+		return
+	}
+	return cdr[attrType].EncodeString(strVal)
+}

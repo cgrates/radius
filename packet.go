@@ -220,10 +220,44 @@ func (p *Packet) AttributesWithName(attrName, vendorName string) (avps []*AVP) {
 	return p.AttributesWithNumber(da.AttributeNumber, vc)
 }
 
-func (p *Packet) AddAVPWithNumber(attrNr uint8, vendorCode uint32, val interface{}) (err error) {
+// AddAVPWithNumber adds an AVP based on it's attribute number and value
+func (p *Packet) AddAVPWithNumber(attrNr uint8, val interface{}, vendorCode uint32) (err error) {
+	d := p.dict.AttributeWithNumber(attrNr, vendorCode)
+	if d == nil {
+		return errors.New("no dictionary data")
+	}
+	avp := &AVP{
+		Number: d.AttributeNumber,
+		Name:   d.AttributeName,
+		Type:   d.AttributeType,
+		Value:  val,
+	}
+	if raw, err := p.coder.Encode(d.AttributeType, val); err != nil {
+		return err
+	} else {
+		avp.RawValue = raw
+	}
+	p.AVPs = append(p.AVPs, avp)
 	return
 }
 
-func (p *Packet) AddAVPWithName(attrName, vendorName, strVal string) (err error) {
+// AddAVPWithName adds an AVP based on it's attribute name and string value
+func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error) {
+	d := p.dict.AttributeWithName(attrName, vendorName)
+	if d == nil {
+		return errors.New("no dictionary data")
+	}
+	avp := &AVP{
+		Number:      d.AttributeNumber,
+		Name:        attrName,
+		Type:        d.AttributeType,
+		StringValue: strVal,
+	}
+	if raw, err := p.coder.EncodeString(d.AttributeType, strVal); err != nil {
+		return err
+	} else {
+		avp.RawValue = raw
+	}
+	p.AVPs = append(p.AVPs, avp)
 	return
 }
