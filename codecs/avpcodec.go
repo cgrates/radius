@@ -4,4 +4,5 @@ package codecs
 type AVPCoder interface {
 	Decode([]byte) (interface{}, string, error)
 	Encode(interface{}) ([]byte, error)
+	EncodeString(string) ([]byte, error)
 }

@@ -21,3 +21,8 @@ func (cdc StringCodec) Encode(v interface{}) (b []byte, err error) {
 	}
 	return []byte(strVal), nil
 }
+
+// EncodeString is part of AVPCoder interface
+func (cdc StringCodec) EncodeString(s string) (b []byte, err error) {
+	return cdc.Encode(s)
+}

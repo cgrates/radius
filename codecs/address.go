@@ -29,3 +29,8 @@ func (cdc AddressCodec) Encode(v interface{}) (b []byte, err error) {
 	}
 	return []byte(ipVal), nil
 }
+
+// EncodeString is part of AVPCoder interface
+func (cdc AddressCodec) EncodeString(s string) (b []byte, err error) {
+	return cdc.Encode(net.ParseIP(s))
+}
