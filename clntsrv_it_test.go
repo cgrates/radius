@@ -62,11 +62,11 @@ END-VENDOR      Cisco
 	go NewServer("tcp", "localhost:1812",
 		map[string]string{"127.0.0.1": "CGRateS.org"},
 		map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()},
-		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}).ListenAndServe()
+		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}, nil).ListenAndServe()
 	go NewServer("tcp", "localhost:1813",
 		map[string]string{"127.0.0.1": "CGRateS.org"},
 		map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()},
-		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}).ListenAndServe()
+		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}, nil).ListenAndServe()
 }
 
 func TestRadClientAuth(t *testing.T) {
@@ -77,20 +77,14 @@ func TestRadClientAuth(t *testing.T) {
 	req := &Packet{
 		Code:       AccessRequest,
 		Identifier: 1,
-		AVPs: []*AVP{
-			&AVP{
-				Name:  "User-Name",
-				Value: "flopsy",
-			},
-			&AVP{
-				Number: VendorSpecific,
-				Value: &VSA{
-					VendorName: "Cisco",
-					Name:       "Cisco-NAS-Port",
-					Value:      "CGR1",
-				},
-			},
-		},
+		dict:       dict,
+		coder:      NewCoder(),
+	}
+	if err := req.AddAVPWithName("User-Name", "flopsy", ""); err != nil {
+		t.Error(err)
+	}
+	if err := req.AddAVPWithName("Cisco-NAS-Port", "CGR1", "Cisco"); err != nil {
+		t.Error(err)
 	}
 	reply, err := authClnt.SendRequest(req)
 	if err != nil {
@@ -118,20 +112,14 @@ func TestRadClientAccount(t *testing.T) {
 	req := &Packet{
 		Code:       AccountingRequest,
 		Identifier: 2,
-		AVPs: []*AVP{
-			&AVP{
-				Name:  "User-Name",
-				Value: "flopsy",
-			},
-			&AVP{
-				Number: VendorSpecific,
-				Value: &VSA{
-					VendorName: "Cisco",
-					Name:       "Cisco-NAS-Port",
-					Value:      "CGR1",
-				},
-			},
-		},
+		dict:       dict,
+		coder:      NewCoder(),
+	}
+	if err := req.AddAVPWithName("User-Name", "flopsy", ""); err != nil {
+		t.Error(err)
+	}
+	if err := req.AddAVPWithName("Cisco-NAS-Port", "CGR1", "Cisco"); err != nil {
+		t.Error(err)
 	}
 	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", dict, 0)
 	if err != nil {

@@ -84,7 +84,7 @@ func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Di
 	for k, v := range avpCoders {
 		coder[k] = v
 	}
-	return &Server{net: net, addr: addr, secrets: secrets, dicts: dicts, reqHandlers: reqHandlers}
+	return &Server{net: net, addr: addr, secrets: secrets, dicts: dicts, reqHandlers: reqHandlers, coder: coder}
 }
 
 // Server represents a single listener on a port
