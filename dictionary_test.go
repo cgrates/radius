@@ -25,11 +25,11 @@ func TestParseDictionaryAttribute(t *testing.T) {
 }
 
 func TestParseDictValue(t *testing.T) {
-	eDV := &dictValue{
-		attributeName:   "Framed-Protocol",
-		valueName:       "PPP",
-		attributeNumber: 1}
-	if dv, err := parseDictValue([]string{"VALUE", "Framed-Protocol", "PPP", "1"}); err != nil {
+	eDV := &DictionaryValue{
+		AttributeName: "Framed-Protocol",
+		ValueName:     "PPP",
+		ValueNumber:   1}
+	if dv, err := parseDictionaryValue([]string{"VALUE", "Framed-Protocol", "PPP", "1"}); err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(eDV, dv) {
 		t.Errorf("Expecting: %+v, received: %+v", eDV, dv)
@@ -143,6 +143,28 @@ END-VENDOR      Cisco
 					AttributeName:   "Cisco-NAS-Port",
 					AttributeNumber: 2,
 					AttributeType:   "string",
+				},
+			},
+		},
+		valName: map[string]map[string]map[string]*DictionaryValue{
+			"": map[string]map[string]*DictionaryValue{
+				"Framed-Protocol": map[string]*DictionaryValue{
+					"PPP": &DictionaryValue{
+						AttributeName: "Framed-Protocol",
+						ValueName:     "PPP",
+						ValueNumber:   1,
+					},
+				},
+			},
+		},
+		valNr: map[uint32]map[string]map[uint8]*DictionaryValue{
+			NoVendor: map[string]map[uint8]*DictionaryValue{
+				"Framed-Protocol": map[uint8]*DictionaryValue{
+					1: &DictionaryValue{
+						AttributeName: "Framed-Protocol",
+						ValueName:     "PPP",
+						ValueNumber:   1,
+					},
 				},
 			},
 		},

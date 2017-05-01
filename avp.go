@@ -62,6 +62,11 @@ func (a *AVP) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	a.Type = da.AttributeType
 	a.Value = val
 	a.StringValue = strVal
+	if a.Type == IntegerValue { // Attempty aliasing string value with the one from enum
+		if dv := dict.ValueWithNumber(a.Name, a.Value.(uint8), NoVendor); dv != nil {
+			a.StringValue = dv.ValueName
+		}
+	}
 	return
 }
 
@@ -165,6 +170,11 @@ func (vsa *VSA) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	vsa.Type = da.AttributeType
 	vsa.Value = val
 	vsa.StringValue = strVal
+	if vsa.Type == IntegerValue { // Attempty aliasing string value with the one from enum
+		if dv := dict.ValueWithNumber(vsa.Name, vsa.Value.(uint8), vsa.Vendor); dv != nil {
+			vsa.StringValue = dv.ValueName
+		}
+	}
 	return
 }
 
