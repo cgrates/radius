@@ -27,9 +27,9 @@ type packetReplyHandler struct {
 }
 
 // NewClient creates a new client and connects it to the address
-func NewClient(net, address string, secret string, dictionary *Dictionary,
+func NewClient(net, address string, secret string, dict *Dictionary,
 	connAttempts int, avpCoders map[string]codecs.AVPCoder) (*Client, error) {
-	clnt := &Client{net: net, address: address, secret: secret, dictionary: dictionary,
+	clnt := &Client{net: net, address: address, secret: secret, dict: dict,
 		connAttempts: connAttempts, activeReqs: make(map[uint8]*packetReplyHandler),
 		coder: NewCoder()}
 	for k, v := range avpCoders { // add the extra coders
@@ -52,7 +52,7 @@ type Client struct {
 	net          string         // udp/tcp
 	address      string
 	secret       string
-	dictionary   *Dictionary
+	dict         *Dictionary
 	coder        Coder
 	connAttempts int
 	activeReqs   map[uint8]*packetReplyHandler // keep record of sent packets for matching with repliesa
@@ -126,7 +126,7 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 			c.disconnect()
 			break
 		}
-		rply := &Packet{secret: c.secret, dict: c.dictionary, coder: c.coder}
+		rply := &Packet{secret: c.secret, dict: c.dict, coder: c.coder}
 		if err = rply.Decode(b[:n]); err != nil {
 			log.Printf("error: <%s> when decoding packet", err.Error())
 			continue
@@ -152,7 +152,7 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 	var buf [4096]byte
 	var n int
 	req.secret = c.secret
-	req.dict = c.dictionary
+	req.dict = c.dict
 	n, err = req.Encode(buf[:])
 	if err != nil {
 		return
@@ -171,4 +171,14 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 		return nil, errors.New("invalid packet")
 	}
 	return
+}
+
+// NewRequest produces new client request
+func (c *Client) NewRequest(code PacketCode, id uint8) (req *Packet) {
+	return &Packet{
+		Code:       code,
+		Identifier: id,
+		dict:       c.dict,
+		coder:      c.coder,
+	}
 }

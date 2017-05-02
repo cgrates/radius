@@ -74,12 +74,7 @@ func TestRadClientAuth(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	req := &Packet{
-		Code:       AccessRequest,
-		Identifier: 1,
-		dict:       dict,
-		coder:      NewCoder(),
-	}
+	req := authClnt.NewRequest(AccessRequest, 1)
 	if err := req.AddAVPWithName("User-Name", "flopsy", ""); err != nil {
 		t.Error(err)
 	}
@@ -109,20 +104,15 @@ func TestRadClientAuth(t *testing.T) {
 }
 
 func TestRadClientAccount(t *testing.T) {
-	req := &Packet{
-		Code:       AccountingRequest,
-		Identifier: 2,
-		dict:       dict,
-		coder:      NewCoder(),
+	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", dict, 0, nil)
+	if err != nil {
+		t.Error(err)
 	}
+	req := acntClnt.NewRequest(AccountingRequest, 2)
 	if err := req.AddAVPWithName("User-Name", "flopsy", ""); err != nil {
 		t.Error(err)
 	}
 	if err := req.AddAVPWithName("Cisco-NAS-Port", "CGR1", "Cisco"); err != nil {
-		t.Error(err)
-	}
-	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", dict, 0, nil)
-	if err != nil {
 		t.Error(err)
 	}
 	reply, err := acntClnt.SendRequest(req)
