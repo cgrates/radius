@@ -26,6 +26,11 @@ const (
 	NoVendor                        = 0
 )
 
+var (
+	ErrNotImplemented     = errors.New("not implemented")
+	ErrDictionaryNotFound = errors.New("not found in dictionary")
+)
+
 // computeAuthenticator computes the authenticator
 // raw is the data received or to be sent over network
 func computeAuthenticator(raw []byte, secret string) (acator [16]byte) {
@@ -225,18 +230,32 @@ func (p *Packet) AttributesWithName(attrName, vendorName string) (avps []*AVP) {
 func (p *Packet) AddAVPWithNumber(attrNr uint8, val interface{}, vendorCode uint32) (err error) {
 	d := p.dict.AttributeWithNumber(attrNr, vendorCode)
 	if d == nil {
-		return errors.New("no dictionary data")
+		return ErrDictionaryNotFound
 	}
-	avp := &AVP{
-		Number: d.AttributeNumber,
-		Name:   d.AttributeName,
-		Type:   d.AttributeType,
-		Value:  val,
-	}
-	if raw, err := p.coder.Encode(d.AttributeType, val); err != nil {
-		return err
+	var avp *AVP
+	if vendorCode == NoVendor {
+		avp = &AVP{
+			Number: attrNr,
+			Name:   d.AttributeName,
+			Type:   d.AttributeType,
+			Value:  val,
+		}
 	} else {
-		avp.RawValue = raw
+		avp = &AVP{
+			Number: VendorSpecificNumber,
+			Name:   VendorSpecificName,
+			Type:   StringValue,
+			Value: &VSA{
+				Vendor: vendorCode,
+				Number: attrNr,
+				Name:   d.AttributeName,
+				Type:   d.AttributeType,
+				Value:  val,
+			},
+		}
+	}
+	if err = avp.SetRawValue(p.dict, p.coder); err != nil {
+		return
 	}
 	p.AVPs = append(p.AVPs, avp)
 	return
@@ -246,7 +265,7 @@ func (p *Packet) AddAVPWithNumber(attrNr uint8, val interface{}, vendorCode uint
 func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error) {
 	d := p.dict.AttributeWithName(attrName, vendorName)
 	if d == nil {
-		return errors.New("no dictionary data")
+		return ErrDictionaryNotFound
 	}
 	var avp *AVP
 	if vendorName == "" {
