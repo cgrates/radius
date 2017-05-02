@@ -161,6 +161,7 @@ func (p *Packet) Reply() *Packet {
 	return &Packet{
 		dict:          p.dict,
 		secret:        p.secret,
+		coder:         p.coder,
 		Identifier:    p.Identifier,
 		Authenticator: p.Authenticator,
 	}
