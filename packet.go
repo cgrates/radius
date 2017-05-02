@@ -11,18 +11,19 @@ import (
 )
 
 const (
-	AccessRequest      PacketCode = 1
-	AccessAccept       PacketCode = 2
-	AccessReject       PacketCode = 3
-	AccountingRequest  PacketCode = 4
-	AccountingResponse PacketCode = 5
-	AccessChallenge    PacketCode = 11
-	StatusServer       PacketCode = 12 //(experimental)
-	StatusClient       PacketCode = 13 //(experimental)
-	Reserved           PacketCode = 255
-	ReplyMessage                  = 18
-	VendorSpecific                = 26 // vendor specific AVP number
-	NoVendor                      = 0
+	AccessRequest        PacketCode = 1
+	AccessAccept         PacketCode = 2
+	AccessReject         PacketCode = 3
+	AccountingRequest    PacketCode = 4
+	AccountingResponse   PacketCode = 5
+	AccessChallenge      PacketCode = 11
+	StatusServer         PacketCode = 12 //(experimental)
+	StatusClient         PacketCode = 13 //(experimental)
+	Reserved             PacketCode = 255
+	ReplyMessage                    = 18
+	VendorSpecificNumber            = 26 // vendor specific AVP number
+	VendorSpecificName              = "Vendor-Specific"
+	NoVendor                        = 0
 )
 
 // computeAuthenticator computes the authenticator
@@ -181,7 +182,7 @@ func (p *Packet) AttributesWithNumber(attrNr uint8, vendorCode uint32) (avps []*
 	defer p.RUnlock()
 	qryNr := attrNr
 	if vendorCode != NoVendor { // if vendor is not 0 we will emulate query on VendorSpecific number and consider sub
-		qryNr = VendorSpecific
+		qryNr = VendorSpecificNumber
 	}
 	for _, avp := range p.AVPs {
 		if avp.Number == qryNr {
@@ -247,16 +248,30 @@ func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error)
 	if d == nil {
 		return errors.New("no dictionary data")
 	}
-	avp := &AVP{
-		Number:      d.AttributeNumber,
-		Name:        attrName,
-		Type:        d.AttributeType,
-		StringValue: strVal,
-	}
-	if raw, err := p.coder.EncodeString(d.AttributeType, strVal); err != nil {
-		return err
+	var avp *AVP
+	if vendorName == "" {
+		avp = &AVP{
+			Number:      d.AttributeNumber,
+			Name:        attrName,
+			Type:        d.AttributeType,
+			StringValue: strVal,
+		}
 	} else {
-		avp.RawValue = raw
+		avp = &AVP{
+			Number: VendorSpecificNumber,
+			Name:   VendorSpecificName,
+			Type:   StringValue,
+			Value: &VSA{
+				VendorName:  vendorName,
+				Number:      d.AttributeNumber,
+				Name:        attrName,
+				Type:        d.AttributeType,
+				StringValue: strVal,
+			},
+		}
+	}
+	if err = avp.SetRawValue(p.dict, p.coder); err != nil {
+		return
 	}
 	p.AVPs = append(p.AVPs, avp)
 	return

@@ -32,7 +32,7 @@ func (a *AVP) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	if a.Value != nil { // already set
 		return
 	}
-	if a.Number == VendorSpecific { // Special handling of VSA values
+	if a.Number == VendorSpecificNumber { // Special handling of VSA values
 		vsa, err := NewVSAFromAVP(a)
 		if err != nil {
 			return err
@@ -40,7 +40,7 @@ func (a *AVP) SetValue(dict *Dictionary, cdr Coder) (err error) {
 		if err := vsa.SetValue(dict, cdr); err != nil {
 			return err
 		}
-		a.Name = "Vendor-Specific"
+		a.Name = VendorSpecificName
 		a.Type = StringValue
 		a.Value = vsa
 		return nil
@@ -75,7 +75,7 @@ func (a *AVP) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 	if a.RawValue != nil {
 		return
 	}
-	if a.Value == nil {
+	if a.Value == nil && a.StringValue == "" {
 		return fmt.Errorf("avp: %+v, no value", a)
 	}
 	if a.Type == "" {
@@ -92,10 +92,10 @@ func (a *AVP) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 		a.Type = da.AttributeType
 		a.Number = da.AttributeNumber
 	}
-	if a.Number == VendorSpecific { // handle VSA differently
+	if a.Number == VendorSpecificNumber { // handle VSA differently
 		vsa, ok := a.Value.(*VSA)
 		if !ok {
-			return fmt.Errorf("%+v, cannot extract VSA", a)
+			return fmt.Errorf("%+v, cannot cast to VSA", a)
 		}
 		if err := vsa.SetRawValue(dict, cdr); err != nil {
 			return err
@@ -103,16 +103,22 @@ func (a *AVP) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 		a.RawValue = vsa.AVP().RawValue
 		return
 	}
-	if rawVal, err := cdr.Encode(a.Type, a.Value); err != nil {
-		return err
-	} else {
-		a.RawValue = rawVal
+	var rawVal []byte
+	if a.Value != nil {
+		if rawVal, err = cdr.Encode(a.Type, a.Value); err != nil {
+			return err
+		}
+	} else { // Consider stirng for encoding
+		if rawVal, err = cdr.EncodeString(a.Type, a.StringValue); err != nil {
+			return err
+		}
 	}
+	a.RawValue = rawVal
 	return nil
 }
 
 func NewVSAFromAVP(avp *AVP) (*VSA, error) {
-	if avp.Number != VendorSpecific {
+	if avp.Number != VendorSpecificNumber {
 		return nil, errors.New("not VSA type")
 	}
 	vsa := new(VSA)
@@ -145,7 +151,7 @@ func (vsa *VSA) AVP() *AVP {
 	vsa_value[4] = uint8(vsa.Number)
 	vsa_value[5] = uint8(vsa_len + 2)
 	copy(vsa_value[6:], vsa.RawValue)
-	return &AVP{Number: VendorSpecific, RawValue: vsa_value}
+	return &AVP{Number: VendorSpecificNumber, RawValue: vsa_value}
 }
 
 // SetValue populates Value elements based on vsa.RawValue
@@ -183,12 +189,14 @@ func (vsa *VSA) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 	if vsa.RawValue != nil { // already set
 		return
 	}
-	if vsa.Value == nil {
+	if vsa.Value == nil && vsa.StringValue == "" {
 		return fmt.Errorf("no value in VSA: %+v", vsa)
 	}
 	if vsa.Type == "" {
 		var da *DictionaryAttribute
-		if vsa.Name != "" {
+		if vsa.Number != 0 && vsa.Vendor != NoVendor {
+			da = dict.AttributeWithNumber(vsa.Number, vsa.Vendor)
+		} else if vsa.Name != "" {
 			if vsa.VendorName == "" {
 				if vndr := dict.VendorWithCode(vsa.Vendor); vndr == nil {
 					return fmt.Errorf("no vendor in dictionary for VSA: %+v, ", vsa)
@@ -197,8 +205,6 @@ func (vsa *VSA) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 				}
 			}
 			da = dict.AttributeWithName(vsa.Name, vsa.VendorName)
-		} else if vsa.Number != 0 {
-			da = dict.AttributeWithNumber(vsa.Number, vsa.Vendor)
 		}
 		if da == nil {
 			return fmt.Errorf("missing dictionary data for VSA: %+v, ", vsa)
@@ -207,10 +213,16 @@ func (vsa *VSA) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 		vsa.Type = da.AttributeType
 		vsa.Number = da.AttributeNumber
 	}
-	if rawVal, err := cdr.Encode(vsa.Type, vsa.Value); err != nil {
-		return err
+	var rawVal []byte
+	if vsa.Value != nil {
+		if rawVal, err = cdr.Encode(vsa.Type, vsa.Value); err != nil {
+			return err
+		}
 	} else {
-		vsa.RawValue = rawVal
+		if rawVal, err = cdr.EncodeString(vsa.Type, vsa.StringValue); err != nil {
+			return err
+		}
 	}
+	vsa.RawValue = rawVal
 	return
 }

@@ -70,7 +70,7 @@ END-VENDOR      Cisco
 }
 
 func TestRadClientAuth(t *testing.T) {
-	authClnt, err := NewClient("tcp", "localhost:1812", "CGRateS.org", dict, 0)
+	authClnt, err := NewClient("tcp", "localhost:1812", "CGRateS.org", dict, 0, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -121,7 +121,7 @@ func TestRadClientAccount(t *testing.T) {
 	if err := req.AddAVPWithName("Cisco-NAS-Port", "CGR1", "Cisco"); err != nil {
 		t.Error(err)
 	}
-	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", dict, 0)
+	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", dict, 0, nil)
 	if err != nil {
 		t.Error(err)
 	}

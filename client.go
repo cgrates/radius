@@ -7,6 +7,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/cgrates/radigo/codecs"
 )
 
 // successive Fibonacci numbers.
@@ -25,9 +27,14 @@ type packetReplyHandler struct {
 }
 
 // NewClient creates a new client and connects it to the address
-func NewClient(net, address string, secret string, dictionary *Dictionary, connAttempts int) (*Client, error) {
+func NewClient(net, address string, secret string, dictionary *Dictionary,
+	connAttempts int, avpCoders map[string]codecs.AVPCoder) (*Client, error) {
 	clnt := &Client{net: net, address: address, secret: secret, dictionary: dictionary,
-		connAttempts: connAttempts, activeReqs: make(map[uint8]*packetReplyHandler)}
+		connAttempts: connAttempts, activeReqs: make(map[uint8]*packetReplyHandler),
+		coder: NewCoder()}
+	for k, v := range avpCoders { // add the extra coders
+		clnt.coder[k] = v
+	}
 	if connAttempts == 0 {
 		connAttempts = 1 // at least one connection
 	}
@@ -46,8 +53,9 @@ type Client struct {
 	address      string
 	secret       string
 	dictionary   *Dictionary
+	coder        Coder
 	connAttempts int
-	activeReqs   map[uint8]*packetReplyHandler // keep record of sent packets for matching with replies
+	activeReqs   map[uint8]*packetReplyHandler // keep record of sent packets for matching with repliesa
 	aReqsMux     sync.Mutex                    // protects activeRequests
 }
 
@@ -118,7 +126,7 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 			c.disconnect()
 			break
 		}
-		rply := &Packet{secret: c.secret, dict: c.dictionary}
+		rply := &Packet{secret: c.secret, dict: c.dictionary, coder: c.coder}
 		if err = rply.Decode(b[:n]); err != nil {
 			log.Printf("error: <%s> when decoding packet", err.Error())
 			continue
