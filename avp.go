@@ -63,7 +63,7 @@ func (a *AVP) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	a.Value = val
 	a.StringValue = strVal
 	if a.Type == IntegerValue { // Attempty aliasing string value with the one from enum
-		if dv := dict.ValueWithNumber(a.Name, a.Value.(uint8), NoVendor); dv != nil {
+		if dv := dict.ValueWithNumber(a.Name, uint8(a.Value.(uint32)), NoVendor); dv != nil {
 			a.StringValue = dv.ValueName
 		}
 	}

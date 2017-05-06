@@ -181,6 +181,14 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 	return
 }
 
+func (p *Packet) SetAVPValues() {
+	for _, avp := range p.AVPs {
+		if err := avp.SetValue(p.dict, p.coder); err != nil {
+			log.Printf("failed setting value for avp: %+v, err: %s\n", avp, err.Error())
+		}
+	}
+}
+
 // Attributes queries AVPs matching the attrNr
 // if vendorCode is defined, AttributesWithNumber will query VSAs
 func (p *Packet) AttributesWithNumber(attrNr uint8, vendorCode uint32) (avps []*AVP) {
