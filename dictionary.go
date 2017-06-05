@@ -175,7 +175,7 @@ func NewEmptyDictionary() *Dictionary {
 // Dictionary data required in RFC2865
 func RFC2865Dictionary() (d *Dictionary) {
 	d = NewEmptyDictionary()
-	d.parseFromReader(strings.NewReader(RFC2865Dict))
+	d.ParseFromReader(strings.NewReader(RFC2865Dict))
 	return
 }
 
@@ -204,7 +204,7 @@ type Dictionary struct {
 
 // parseFromReader loops through the lines in the reader, adding info to the Dictionary
 // overwrites previous data
-func (dict *Dictionary) parseFromReader(rdr io.Reader) (err error) {
+func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 	buf := bufio.NewReader(rdr)
 	lnNr := 0
 	for {
@@ -330,7 +330,7 @@ func (dict *Dictionary) ParseFromFolder(dirPath string) (err error) {
 		for _, dictFilePath := range dictFiles {
 			if file, err := os.Open(dictFilePath); err != nil {
 				return err
-			} else if err = dict.parseFromReader(file); err != nil {
+			} else if err = dict.ParseFromReader(file); err != nil {
 				return err
 			}
 		}

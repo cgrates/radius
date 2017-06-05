@@ -96,6 +96,17 @@ func (p *Packet) Has(attrNr uint8) bool {
 	return false
 }
 
+// NewPacket creates a fresh packet, used mostly for testing
+func NewPacket(code PacketCode, id uint8, dict *Dictionary, coder Coder, secret string) *Packet {
+	return &Packet{
+		Code:       code,
+		Identifier: id,
+		dict:       dict,
+		coder:      coder,
+		secret:     secret,
+	}
+}
+
 type Packet struct {
 	sync.RWMutex
 	dict          *Dictionary
@@ -174,7 +185,7 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 	case AccessRequest:
 		rply.Code = AccessReject
 		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, RawValue: []byte(errMsg)})
-	case AccountingRequest:
+	case AccountingRequest: // normally RFC 2866 advises against, possibility to be RFC agnostic
 		rply.Code = AccountingResponse
 		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, RawValue: []byte(errMsg)})
 	}
@@ -279,10 +290,10 @@ func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error)
 	var avp *AVP
 	if vendorName == "" {
 		avp = &AVP{
-			Number:      d.AttributeNumber,
-			Name:        attrName,
-			Type:        d.AttributeType,
-			StringValue: strVal,
+			Number:     d.AttributeNumber,
+			Name:       attrName,
+			Type:       d.AttributeType,
+			strngValue: strVal,
 		}
 	} else {
 		avp = &AVP{
@@ -290,11 +301,11 @@ func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error)
 			Name:   VendorSpecificName,
 			Type:   StringValue,
 			Value: &VSA{
-				VendorName:  vendorName,
-				Number:      d.AttributeNumber,
-				Name:        attrName,
-				Type:        d.AttributeType,
-				StringValue: strVal,
+				VendorName: vendorName,
+				Number:     d.AttributeNumber,
+				Name:       attrName,
+				Type:       d.AttributeType,
+				strngValue: strVal,
 			},
 		}
 	}

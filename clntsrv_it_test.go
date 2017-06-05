@@ -56,7 +56,7 @@ END-VENDOR      Cisco
 `
 	dict = RFC2865Dictionary()
 	// Load some VSA for our tests
-	if err := dict.parseFromReader(strings.NewReader(freeRADIUSDocDictSample)); err != nil {
+	if err := dict.ParseFromReader(strings.NewReader(freeRADIUSDocDictSample)); err != nil {
 		t.Error(err)
 	}
 	go NewServer("tcp", "localhost:1812",
