@@ -7,12 +7,12 @@ import (
 )
 
 type AVP struct {
-	Number     uint8       // attribute number
-	Name       string      // attribute name
-	Type       string      // type of the value helping us to convert to concrete
-	RawValue   []byte      // original value as byte
-	Value      interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string) or avp.Value.(*VSA))
-	strngValue string      // stores the string value for convenience and pretty print
+	Number      uint8       // attribute number
+	Name        string      // attribute name
+	Type        string      // type of the value helping us to convert to concrete
+	RawValue    []byte      // original value as byte
+	Value       interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string) or avp.Value.(*VSA))
+	StringValue string      // stores the string value for convenience and pretty print
 }
 
 func (a *AVP) Encode(b []byte) (n int, err error) {
@@ -27,11 +27,11 @@ func (a *AVP) Encode(b []byte) (n int, err error) {
 }
 
 // StringValue returns the string value from either AVP of VSA
-func (a *AVP) StringValue() (strVal string) {
+func (a *AVP) GetStringValue() (strVal string) {
 	if a.Number != VendorSpecificNumber {
-		strVal = a.strngValue
+		strVal = a.StringValue
 	} else if vsa, cast := a.Value.(*VSA); cast { // for VSA, return string value of it
-		strVal = vsa.strngValue
+		strVal = vsa.StringValue
 	}
 	return
 }
@@ -71,10 +71,10 @@ func (a *AVP) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	}
 	a.Type = da.AttributeType
 	a.Value = val
-	a.strngValue = strVal
+	a.StringValue = strVal
 	if a.Type == IntegerValue { // Attempty aliasing string value with the one from enum
 		if dv := dict.ValueWithNumber(a.Name, uint8(a.Value.(uint32)), NoVendor); dv != nil {
-			a.strngValue = dv.ValueName
+			a.StringValue = dv.ValueName
 		}
 	}
 	return
@@ -85,7 +85,7 @@ func (a *AVP) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 	if a.RawValue != nil {
 		return
 	}
-	if a.Value == nil && a.strngValue == "" {
+	if a.Value == nil && a.StringValue == "" {
 		return fmt.Errorf("avp: %+v, no value", a)
 	}
 	if a.Type == "" {
@@ -119,7 +119,7 @@ func (a *AVP) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 			return err
 		}
 	} else { // Consider stirng for encoding
-		if rawVal, err = cdr.EncodeString(a.Type, a.strngValue); err != nil {
+		if rawVal, err = cdr.EncodeString(a.Type, a.StringValue); err != nil {
 			return err
 		}
 	}
@@ -142,14 +142,14 @@ func NewVSAFromAVP(avp *AVP) (*VSA, error) {
 // Vendor specific Attribute/Val
 // originally ported from github.com/bronze1man/radius/avp_vendor.go
 type VSA struct {
-	Vendor     uint32
-	Number     uint8       // attribute number
-	VendorName string      // populated by dictionary
-	Name       string      // attribute name
-	Type       string      // type of the value helping us to convert to concrete
-	Value      interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
-	RawValue   []byte      // value as received over network
-	strngValue string      // stores the string value
+	Vendor      uint32
+	Number      uint8       // attribute number
+	VendorName  string      // populated by dictionary
+	Name        string      // attribute name
+	Type        string      // type of the value helping us to convert to concrete
+	Value       interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
+	RawValue    []byte      // value as received over network
+	StringValue string      // stores the string value
 }
 
 // AVP encodes VSA back into AVP
@@ -185,10 +185,10 @@ func (vsa *VSA) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	}
 	vsa.Type = da.AttributeType
 	vsa.Value = val
-	vsa.strngValue = strVal
+	vsa.StringValue = strVal
 	if vsa.Type == IntegerValue { // Attempty aliasing string value with the one from enum
 		if dv := dict.ValueWithNumber(vsa.Name, vsa.Value.(uint8), vsa.Vendor); dv != nil {
-			vsa.strngValue = dv.ValueName
+			vsa.StringValue = dv.ValueName
 		}
 	}
 	return
@@ -199,7 +199,7 @@ func (vsa *VSA) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 	if vsa.RawValue != nil { // already set
 		return
 	}
-	if vsa.Value == nil && vsa.strngValue == "" {
+	if vsa.Value == nil && vsa.StringValue == "" {
 		return fmt.Errorf("no value in VSA: %+v", vsa)
 	}
 	if vsa.Type == "" {
@@ -229,7 +229,7 @@ func (vsa *VSA) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 			return err
 		}
 	} else {
-		if rawVal, err = cdr.EncodeString(vsa.Type, vsa.strngValue); err != nil {
+		if rawVal, err = cdr.EncodeString(vsa.Type, vsa.StringValue); err != nil {
 			return err
 		}
 	}

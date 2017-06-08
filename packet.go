@@ -290,10 +290,10 @@ func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error)
 	var avp *AVP
 	if vendorName == "" {
 		avp = &AVP{
-			Number:     d.AttributeNumber,
-			Name:       attrName,
-			Type:       d.AttributeType,
-			strngValue: strVal,
+			Number:      d.AttributeNumber,
+			Name:        attrName,
+			Type:        d.AttributeType,
+			StringValue: strVal,
 		}
 	} else {
 		avp = &AVP{
@@ -301,11 +301,11 @@ func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error)
 			Name:   VendorSpecificName,
 			Type:   StringValue,
 			Value: &VSA{
-				VendorName: vendorName,
-				Number:     d.AttributeNumber,
-				Name:       attrName,
-				Type:       d.AttributeType,
-				strngValue: strVal,
+				VendorName:  vendorName,
+				Number:      d.AttributeNumber,
+				Name:        attrName,
+				Type:        d.AttributeType,
+				StringValue: strVal,
 			},
 		}
 	}
