@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -105,6 +106,8 @@ func parseDictionaryAttribute(input []string) (*DictionaryAttribute, error) {
 	attrNr, err := strconv.Atoi(input[2])
 	if err != nil {
 		return nil, err
+	} else if attrNr > 255 {
+		return nil, fmt.Errorf("invalid attribute type: %d", attrNr)
 	}
 	return &DictionaryAttribute{AttributeName: input[1],
 		AttributeNumber: uint8(attrNr), AttributeType: input[3]}, nil
@@ -228,7 +231,7 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 		case AttributeKeyword:
 			dAttr, err := parseDictionaryAttribute(flds)
 			if err != nil {
-				return fmt.Errorf("line: %d, <%s>", lnNr, err.Error())
+				log.Printf("dictionary line: %d, <%s>", lnNr, err.Error())
 			}
 			dict.Lock()
 			if _, hasIt := dict.ac[dict.vndr.VendorNumber]; !hasIt {
@@ -244,7 +247,7 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 		case ValueKeyword:
 			dVal, err := parseDictionaryValue(flds)
 			if err != nil {
-				return fmt.Errorf("line: %d, <%s>", lnNr, err.Error())
+				log.Printf("dictionary line: %d, <%s>", lnNr, err.Error())
 			}
 			dict.Lock()
 			if _, hasIt := dict.valName[dict.vndr.VendorName]; !hasIt {
@@ -266,7 +269,7 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 		case VendorKeyword:
 			dVndr, err := parseDictionaryVendor(flds)
 			if err != nil {
-				return fmt.Errorf("line: %d, <%s>", lnNr, err.Error())
+				log.Printf("dictionary line: %d, <%s>", lnNr, err.Error())
 			}
 			dict.Lock()
 			dict.vc[dVndr.VendorNumber] = dVndr
@@ -275,11 +278,11 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 
 		case BeginVendorKeyword:
 			if len(flds) < 2 {
-				return fmt.Errorf("line: %d, <mandatory inFormation missing>", lnNr)
+				log.Printf("dictionary line: %d, <mandatory inFormation missing>", lnNr)
 			}
 			dict.Lock()
 			if dVndr, has := dict.vn[flds[1]]; !has {
-				return fmt.Errorf("line: %d, <unknown vendor name: %s>", lnNr, flds[1])
+				log.Printf("dictioanry line: %d, <unknown vendor name: %s>", lnNr, flds[1])
 			} else {
 				dict.vndr = dVndr // activate a new vendor for indexing
 			}
@@ -287,13 +290,13 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 
 		case EndVendorKeyword:
 			if len(flds) < 2 {
-				return fmt.Errorf("line: %d, <mandatory inFormation missing>", lnNr)
+				log.Printf("dictionary line: %d, <mandatory inFormation missing>", lnNr)
 			}
 			dict.Lock()
 			if dVndr, has := dict.vn[flds[1]]; !has {
-				return fmt.Errorf("line: %d, <unknown vendor name: %s>", lnNr, flds[1])
+				log.Printf("dictioanry line: %d, <unknown vendor name: %s>", lnNr, flds[1])
 			} else if dict.vndr.VendorNumber != dVndr.VendorNumber {
-				return fmt.Errorf("line: %d, <no BEGIN_VENDOR for vendor name: %s>", lnNr, flds[1])
+				log.Printf("line: %d, <no BEGIN_VENDOR for vendor name: %s>", lnNr, flds[1])
 			} else {
 				dict.vndr = new(DictionaryVendor)
 			}
@@ -302,7 +305,7 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 		case IncludeFileKeyword: // ToDo
 
 		default:
-			return fmt.Errorf("line: %d, <unsupported keyword: %s>", lnNr, flds[0])
+			log.Printf("dictionary line: %d, <unsupported keyword: %s>", lnNr, flds[0])
 		}
 	}
 	return
