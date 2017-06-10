@@ -232,6 +232,7 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 			dAttr, err := parseDictionaryAttribute(flds)
 			if err != nil {
 				log.Printf("dictionary line: %d, <%s>", lnNr, err.Error())
+				continue
 			}
 			dict.Lock()
 			if _, hasIt := dict.ac[dict.vndr.VendorNumber]; !hasIt {
@@ -248,6 +249,7 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 			dVal, err := parseDictionaryValue(flds)
 			if err != nil {
 				log.Printf("dictionary line: %d, <%s>", lnNr, err.Error())
+				continue
 			}
 			dict.Lock()
 			if _, hasIt := dict.valName[dict.vndr.VendorName]; !hasIt {
@@ -270,6 +272,7 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 			dVndr, err := parseDictionaryVendor(flds)
 			if err != nil {
 				log.Printf("dictionary line: %d, <%s>", lnNr, err.Error())
+				continue
 			}
 			dict.Lock()
 			dict.vc[dVndr.VendorNumber] = dVndr
@@ -279,10 +282,12 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 		case BeginVendorKeyword:
 			if len(flds) < 2 {
 				log.Printf("dictionary line: %d, <mandatory inFormation missing>", lnNr)
+				continue
 			}
 			dict.Lock()
 			if dVndr, has := dict.vn[flds[1]]; !has {
 				log.Printf("dictioanry line: %d, <unknown vendor name: %s>", lnNr, flds[1])
+				continue
 			} else {
 				dict.vndr = dVndr // activate a new vendor for indexing
 			}
@@ -291,21 +296,24 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 		case EndVendorKeyword:
 			if len(flds) < 2 {
 				log.Printf("dictionary line: %d, <mandatory inFormation missing>", lnNr)
+				continue
 			}
 			dict.Lock()
 			if dVndr, has := dict.vn[flds[1]]; !has {
 				log.Printf("dictioanry line: %d, <unknown vendor name: %s>", lnNr, flds[1])
+				continue
 			} else if dict.vndr.VendorNumber != dVndr.VendorNumber {
 				log.Printf("line: %d, <no BEGIN_VENDOR for vendor name: %s>", lnNr, flds[1])
+				continue
 			} else {
 				dict.vndr = new(DictionaryVendor)
 			}
 			dict.Unlock()
 
 		case IncludeFileKeyword: // ToDo
-
 		default:
 			log.Printf("dictionary line: %d, <unsupported keyword: %s>", lnNr, flds[0])
+			continue
 		}
 	}
 	return
