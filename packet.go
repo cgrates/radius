@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 )
@@ -27,8 +28,7 @@ const (
 )
 
 var (
-	ErrNotImplemented     = errors.New("not implemented")
-	ErrDictionaryNotFound = errors.New("not found in dictionary")
+	ErrNotImplemented = errors.New("not implemented")
 )
 
 // computeAuthenticator computes the authenticator
@@ -250,7 +250,7 @@ func (p *Packet) AttributesWithName(attrName, vendorName string) (avps []*AVP) {
 func (p *Packet) AddAVPWithNumber(attrNr uint8, val interface{}, vendorCode uint32) (err error) {
 	d := p.dict.AttributeWithNumber(attrNr, vendorCode)
 	if d == nil {
-		return ErrDictionaryNotFound
+		return fmt.Errorf("DICTIONARY_NOT_FOUND, item %d, vendor: %d", attrNr, vendorCode)
 	}
 	var avp *AVP
 	if vendorCode == NoVendor {
@@ -285,7 +285,11 @@ func (p *Packet) AddAVPWithNumber(attrNr uint8, val interface{}, vendorCode uint
 func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error) {
 	d := p.dict.AttributeWithName(attrName, vendorName)
 	if d == nil {
-		return ErrDictionaryNotFound
+		errStr := fmt.Sprintf("DICTIONARY_NOT_FOUND, attributeName: <%s>", attrName)
+		if vendorName != "" {
+			errStr = fmt.Sprintf("DICTIONARY_NOT_FOUND, attributeName: <%s>, vendorName: <%s>", attrName, vendorName)
+		}
+		return errors.New(errStr)
 	}
 	var avp *AVP
 	if vendorName == "" {

@@ -2,7 +2,7 @@ package codecs
 
 import (
 	"encoding/binary"
-	"errors"
+	"fmt"
 	"strconv"
 )
 
@@ -19,7 +19,7 @@ func (cdc IntegerCodec) Decode(b []byte) (v interface{}, s string, err error) {
 func (cdc IntegerCodec) Encode(v interface{}) (b []byte, err error) {
 	intVal, ok := v.(uint32)
 	if !ok {
-		return nil, errors.New("cannot cast to uint32")
+		return nil, fmt.Errorf("cannot cast <%v> to uint32", v)
 	}
 	b = make([]byte, 4)
 	binary.BigEndian.PutUint32(b, intVal)
@@ -32,5 +32,5 @@ func (cdc IntegerCodec) EncodeString(s string) (b []byte, err error) {
 	if i, err = strconv.Atoi(s); err != nil {
 		return
 	}
-	return cdc.Encode(i)
+	return cdc.Encode(uint32(i))
 }

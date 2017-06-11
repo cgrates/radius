@@ -171,7 +171,11 @@ func (vsa *VSA) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	}
 	da := dict.AttributeWithNumber(vsa.Number, vsa.Vendor)
 	if da == nil {
-		return ErrDictionaryNotFound
+		errStr := fmt.Sprintf("DICTIONARY_NOT_FOUND, attribute: <%d>", vsa.Number)
+		if vsa.Vendor != 0 {
+			errStr = fmt.Sprintf("DICTIONARY_NOT_FOUND, attribute: <%d>, vendor: <%d>", vsa.Number, vsa.Vendor)
+		}
+		return errors.New(errStr)
 	}
 	val, strVal, err := cdr.Decode(da.AttributeType, vsa.RawValue)
 	if err != nil {
