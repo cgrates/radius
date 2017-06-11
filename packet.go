@@ -200,6 +200,33 @@ func (p *Packet) SetAVPValues() {
 	}
 }
 
+// SetCodeWithName sets the packet code based on predefined name
+func (p *Packet) SetCodeWithName(codeName string) (err error) {
+	switch codeName {
+	case "AccessRequest":
+		p.Code = 1
+	case "AccessAccept":
+		p.Code = 2
+	case "AccessReject":
+		p.Code = 3
+	case "AccountingRequest":
+		p.Code = 4
+	case "AccountingResponse":
+		p.Code = 5
+	case "AccessChallenge":
+		p.Code = 11
+	case "StatusServer":
+		p.Code = 12
+	case "StatusClient":
+		p.Code = 13
+	case "Reserved":
+		p.Code = 255
+	default:
+		return fmt.Errorf("unsupported packet code name: <%s>", codeName)
+	}
+	return
+}
+
 // Attributes queries AVPs matching the attrNr
 // if vendorCode is defined, AttributesWithNumber will query VSAs
 func (p *Packet) AttributesWithNumber(attrNr uint8, vendorCode uint32) (avps []*AVP) {
