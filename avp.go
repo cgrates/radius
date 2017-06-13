@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 type AVP struct {
@@ -118,8 +119,14 @@ func (a *AVP) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 		if rawVal, err = cdr.Encode(a.Type, a.Value); err != nil {
 			return err
 		}
-	} else { // Consider stirng for encoding
-		if rawVal, err = cdr.EncodeString(a.Type, a.StringValue); err != nil {
+	} else { // Consider string for encoding
+		strVal := a.StringValue
+		if a.Type == IntegerValue { // integer can have aliases for pretty print
+			if dv := dict.ValueWithName(a.Name, strVal, ""); dv != nil {
+				strVal = strconv.Itoa(int(dv.ValueNumber))
+			}
+		}
+		if rawVal, err = cdr.EncodeString(a.Type, strVal); err != nil {
 			return err
 		}
 	}
@@ -233,7 +240,13 @@ func (vsa *VSA) SetRawValue(dict *Dictionary, cdr Coder) (err error) {
 			return err
 		}
 	} else {
-		if rawVal, err = cdr.EncodeString(vsa.Type, vsa.StringValue); err != nil {
+		strVal := vsa.StringValue
+		if vsa.Type == IntegerValue { // integer can have aliases for pretty print
+			if dv := dict.ValueWithName(vsa.Name, strVal, vsa.VendorName); dv != nil {
+				strVal = strconv.Itoa(int(dv.ValueNumber))
+			}
+		}
+		if rawVal, err = cdr.EncodeString(vsa.Type, strVal); err != nil {
 			return err
 		}
 	}

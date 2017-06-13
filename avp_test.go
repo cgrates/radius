@@ -3,6 +3,7 @@ package radigo
 import (
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -59,21 +60,17 @@ func TestAVPSetValue(t *testing.T) {
 	}
 }
 
-/*
-func TestIfaceToBytes(t *testing.T) {
-	ip := net.ParseIP("192.168.1.16")
-	eBts := []byte{0xc0, 0xa8, 0x01, 0x10}
-	if bts, err := ifaceToBytes(AddressValue, ip); err != nil {
+func TestAVPSetRawValueWithAlias(t *testing.T) {
+	dictAliasSample := `
+# Alias values
+VALUE    Framed-Protocol    PPP    1
+`
+	d := RFC2865Dictionary()
+	d.ParseFromReader(strings.NewReader(dictAliasSample))
+	avp := &AVP{Name: "Framed-Protocol", Type: IntegerValue, StringValue: "PPP"}
+	if err := avp.SetRawValue(d, NewCoder()); err != nil {
 		t.Error(err)
-	} else if !reflect.DeepEqual(eBts, bts) {
-		t.Errorf("Expecting: %+v, received: %+v", eBts, bts)
-	}
-	cgr := "CGRateS.org"
-	eBts = []byte{0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67}
-	if bts, err := ifaceToBytes(stringVal, cgr); err != nil {
-		t.Error(err)
-	} else if !reflect.DeepEqual(eBts, bts) {
-		t.Errorf("Expecting: %+v, received: %+v", eBts, bts)
+	} else if !reflect.DeepEqual(avp.RawValue, []byte{0x0, 0x0, 0x0, 0x01}) {
+		t.Errorf("Received: %x", avp.RawValue)
 	}
 }
-*/
