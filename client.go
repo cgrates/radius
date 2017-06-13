@@ -71,7 +71,8 @@ func (c *Client) connect(connAttempts int) (err error) {
 	var i int
 	for {
 		i++
-		if conn, err := net.Dial(c.net, c.address); err == nil {
+		var conn net.Conn
+		if conn, err = net.Dial(c.net, c.address); err == nil {
 			c.conn = conn
 			stopReading := make(chan struct{})
 			c.stopReading = &stopReading
@@ -87,7 +88,7 @@ func (c *Client) connect(connAttempts int) (err error) {
 	return
 }
 
-// disconnect does empties the connection and informs all handlers waiting for an answer
+// disconnect empties the connection and informs all handlers waiting for an answer
 func (c *Client) disconnect() {
 	c.connMux.Lock()
 	if c.conn != nil {
@@ -118,17 +119,17 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 		n, err := c.conn.Read(b[:])
 		c.connMux.RUnlock()
 		if err != nil {
-			log.Println(err.Error())
+			log.Printf("error <%s> when reading connection", err.Error())
 			c.disconnect()
 			break
 		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
-			log.Println("error: unexpected packet length received")
+			log.Println("error <unexpected packet length received>")
 			c.disconnect()
 			break
 		}
 		rply := &Packet{secret: c.secret, dict: c.dict, coder: c.coder}
 		if err = rply.Decode(b[:n]); err != nil {
-			log.Printf("error: <%s> when decoding packet", err.Error())
+			log.Printf("error <%s> when decoding packet", err.Error())
 			continue
 		}
 		c.aReqsMux.Lock()
@@ -136,7 +137,7 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 		delete(c.activeReqs, rply.Identifier)
 		c.aReqsMux.Unlock()
 		if !has {
-			log.Printf("error: no handler for packet with code: %d", rply.Code)
+			log.Printf("error <no handler for packet with code: %d>", rply.Code)
 			continue
 		}
 		if !isAuthentic(b[:n], c.secret, pktHndlr.pkt.Authenticator) {
@@ -148,7 +149,7 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 
 // SendRequest dispatches a request and returns it's reply or error
 func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
-	rplyChn := make(chan *Packet, 1) // will receive reply here, make sure it is buffered
+	rplyChn := make(chan *Packet) // will receive reply here
 	var buf [4096]byte
 	var n int
 	req.secret = c.secret
