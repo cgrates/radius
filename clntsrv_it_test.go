@@ -59,13 +59,13 @@ END-VENDOR      Cisco
 	if err := dict.ParseFromReader(strings.NewReader(freeRADIUSDocDictSample)); err != nil {
 		t.Error(err)
 	}
+	secrets := NewSecrets(map[string]string{"127.0.0.1": "CGRateS.org"})
+	dicts := NewDictionaries(map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()})
 	go NewServer("tcp", "localhost:1812",
-		map[string]string{"127.0.0.1": "CGRateS.org"},
-		map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()},
+		secrets, dicts,
 		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}, nil).ListenAndServe()
 	go NewServer("tcp", "localhost:1813",
-		map[string]string{"127.0.0.1": "CGRateS.org"},
-		map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()},
+		secrets, dicts,
 		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}, nil).ListenAndServe()
 }
 

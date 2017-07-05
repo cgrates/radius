@@ -15,6 +15,32 @@ const (
 	MetaDefault = "*default" // default client
 )
 
+// NewSecrets intantiates Secrets
+func NewSecrets(sts map[string]string) *Secrets {
+	if sts == nil {
+		sts = make(map[string]string)
+	}
+	return &Secrets{secrets: sts}
+}
+
+// Secrets centralizes RADIUS secrets so it can be safely accessed over different server instances
+type Secrets struct {
+	sync.RWMutex
+	secrets map[string]string
+}
+
+// GetSecret returns secret for specific instanceID
+// Returns default if no instanceID found
+func (sts *Secrets) GetSecret(instanceID string) (scrt string) {
+	sts.RLock()
+	scrt, hasKey := sts.secrets[instanceID]
+	if !hasKey {
+		scrt = sts.secrets[MetaDefault]
+	}
+	sts.RUnlock()
+	return
+}
+
 func connIDFromAddr(addr string) (connID string) {
 	if idx := strings.Index(addr, "]:"); idx != -1 {
 		connID = addr[1:idx] // ipv6 addr
@@ -78,29 +104,30 @@ func sendReply(synConn syncedConn, rply *Packet) (err error) {
 	return synConn.write(buf[:n])
 }
 
-func NewServer(net, addr string, secrets map[string]string, dicts map[string]*Dictionary,
-	reqHandlers map[PacketCode]func(*Packet) (*Packet, error), avpCoders map[string]codecs.AVPCoder) *Server {
+func NewServer(net, addr string, secrets *Secrets, dicts *Dictionaries,
+	reqHandlers map[PacketCode]func(*Packet) (*Packet, error),
+	avpCoders map[string]codecs.AVPCoder) *Server {
 	coder := NewCoder()
 	for k, v := range avpCoders {
 		coder[k] = v
 	}
-	return &Server{net: net, addr: addr, secrets: secrets, dicts: dicts, reqHandlers: reqHandlers, coder: coder}
+	return &Server{net: net, addr: addr, secrets: secrets,
+		dicts: dicts, reqHandlers: reqHandlers, coder: coder}
 }
 
 // Server represents a single listener on a port
 type Server struct {
 	net         string                                        // tcp, udp ...
 	addr        string                                        // host:port or :port
-	secrets     map[string]string                             // client bounded secrets, *default for server wide
-	scrtMux     sync.RWMutex                                  // protects secrets
-	dicts       map[string]*Dictionary                        // client bounded dictionaries, *default for server wide
-	dMux        sync.RWMutex                                  // protects dicts
+	secrets     *Secrets                                      // client bounded secrets, *default for server wide
+	dicts       *Dictionaries                                 // client bounded dictionaries, *default for server wide
 	reqHandlers map[PacketCode]func(*Packet) (*Packet, error) // map[PacketCode]handler, 0 for default
 	coder       Coder                                         // codecs for AVP values
 	rhMux       sync.RWMutex                                  // protects reqHandlers
 }
 
 // RegisterHandler registers a new handler after the server was instantiated
+// useful for live server reloads
 func (s *Server) RegisterHandler(code PacketCode, hndlr func(*Packet) (*Packet, error)) {
 	s.rhMux.Lock()
 	s.reqHandlers[code] = hndlr
@@ -109,21 +136,9 @@ func (s *Server) RegisterHandler(code PacketCode, hndlr func(*Packet) (*Packet, 
 
 // handleRcvBytes is common method for both udp and tcp to handle received bytes over network
 func (s *Server) handleRcvedBytes(rcv []byte, synConn syncedConn) {
-	s.scrtMux.RLock()
-	secret, hasKey := s.secrets[synConn.getConnID()]
-	if !hasKey {
-		secret = s.secrets[MetaDefault]
-	}
-	s.scrtMux.RUnlock()
-
-	s.dMux.RLock()
-	dict, hasKey := s.dicts[synConn.getConnID()]
-	if !hasKey {
-		dict = s.dicts[MetaDefault]
-	}
-	s.dMux.RUnlock()
-
-	pkt := &Packet{secret: secret, dict: dict, coder: s.coder}
+	pkt := &Packet{secret: s.secrets.GetSecret(synConn.getConnID()),
+		dict:  s.dicts.GetInstance(synConn.getConnID()),
+		coder: s.coder}
 	if err := pkt.Decode(rcv); err != nil {
 		log.Printf("error: <%s> when decoding packet", err.Error())
 		return

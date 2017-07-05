@@ -33,17 +33,18 @@ func handleAcct(req *Packet) (rpl *Packet, err error) {
 
 
 func main() {
+	// Centralized secrets and dictionaries
+	secrets := NewSecrets(map[string]string{"127.0.0.1": "CGRateS.org"})
+	dicts := NewDictionaries(map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()})
 
 	// Start RADIUS AUTH Server
 	go NewServer("tcp", "localhost:1812",
-		map[string]string{"127.0.0.1": "CGRateS.org"},
-		map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()},
+		secrets, dicts,
 		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}).ListenAndServe()
 
 	// Start RADIUS ACCT Server
 	go NewServer("tcp", "localhost:1813",
-		map[string]string{"127.0.0.1": "CGRateS.org"},
-		map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()},
+		secrets, dicts,
 		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}).ListenAndServe()
 
 	// Connect Auth client:

@@ -410,3 +410,28 @@ func (dict *Dictionary) ValueWithNumber(attrName string, valNr uint8, vendorCode
 	}
 	return dict.valNr[vendorCode][attrName][valNr]
 }
+
+// NewDictionaries instantiates Dictionary structure
+func NewDictionaries(dicts map[string]*Dictionary) *Dictionaries {
+	if dicts == nil {
+		dicts = make(map[string]*Dictionary)
+	}
+	return &Dictionaries{dicts: dicts}
+}
+
+// Dictionaries gathers together dictionaries to be safely accessed centralized in more than one server instance
+type Dictionaries struct {
+	sync.RWMutex
+	dicts map[string]*Dictionary
+}
+
+// GetInstance returns the Dictionary instance based on id or default one if not found
+func (dts *Dictionaries) GetInstance(instanceID string) (dict *Dictionary) {
+	dts.RLock()
+	dict, hasKey := dts.dicts[instanceID]
+	if !hasKey {
+		dict = dts.dicts[MetaDefault]
+	}
+	dts.RUnlock()
+	return
+}
