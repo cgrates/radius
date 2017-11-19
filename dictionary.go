@@ -101,13 +101,14 @@ ATTRIBUTE	Login-LAT-Port		63	integer
 // input: one line from the reader
 func parseDictionaryAttribute(input []string) (*DictionaryAttribute, error) {
 	if len(input) < 4 {
-		return nil, errors.New("mandatory inFormation missing")
+		return nil, errors.New(fmt.Sprintf("invalid attribute definition: %v", input))
 	}
 	attrNr, err := strconv.Atoi(input[2])
 	if err != nil {
 		return nil, err
 	} else if attrNr > 255 {
-		return nil, fmt.Errorf("invalid attribute type: %d", attrNr)
+		return nil,
+			fmt.Errorf("attribute type <%d> must be lower than 255", attrNr)
 	}
 	return &DictionaryAttribute{AttributeName: input[1],
 		AttributeNumber: uint8(attrNr), AttributeType: input[3]}, nil
@@ -124,7 +125,7 @@ type DictionaryAttribute struct {
 // VALUE    Framed-Protocol    PPP    1
 func parseDictionaryValue(input []string) (dVal *DictionaryValue, err error) {
 	if len(input) < 4 {
-		return nil, errors.New("mandatory inFormation missing")
+		return nil, errors.New(fmt.Sprintf("invalid value definition: %v", input))
 	}
 	valNr, err := strconv.Atoi(input[3])
 	if err != nil {
@@ -144,7 +145,7 @@ type DictionaryValue struct {
 // input VENDOR vendor-name number [Format]
 func parseDictionaryVendor(input []string) (dVndr *DictionaryVendor, err error) {
 	if len(input) < 3 {
-		return nil, errors.New("mandatory inFormation missing")
+		return nil, errors.New(fmt.Sprintf("invalid vendor definition: %v", input))
 	}
 	nr, err := strconv.Atoi(input[2])
 	if err != nil {
