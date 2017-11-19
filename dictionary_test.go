@@ -129,7 +129,7 @@ END-VENDOR Microsoft
 				1: &DictionaryAttribute{
 					AttributeName:   "MS-CHAP-Response",
 					AttributeNumber: 1,
-					AttributeType:   "octets[50]",
+					AttributeType:   "octets",
 				},
 				2: &DictionaryAttribute{
 					AttributeName:   "MS-CHAP-Error",
@@ -139,7 +139,7 @@ END-VENDOR Microsoft
 				3: &DictionaryAttribute{
 					AttributeName:   "MS-CHAP-CPW-1",
 					AttributeNumber: 3,
-					AttributeType:   "octets[70]",
+					AttributeType:   "octets",
 				},
 			},
 		},
@@ -172,7 +172,7 @@ END-VENDOR Microsoft
 				"MS-CHAP-Response": &DictionaryAttribute{
 					AttributeName:   "MS-CHAP-Response",
 					AttributeNumber: 1,
-					AttributeType:   "octets[50]",
+					AttributeType:   "octets",
 				},
 				"MS-CHAP-Error": &DictionaryAttribute{
 					AttributeName:   "MS-CHAP-Error",
@@ -182,7 +182,7 @@ END-VENDOR Microsoft
 				"MS-CHAP-CPW-1": &DictionaryAttribute{
 					AttributeName:   "MS-CHAP-CPW-1",
 					AttributeNumber: 3,
-					AttributeType:   "octets[70]",
+					AttributeType:   "octets",
 				},
 			},
 		},

@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-// IntegerCodec is a codec for string values
+// IntegerCodec is a codec for integer values
 type IntegerCodec struct{}
 
 // Decode is part of AVPCoder interface

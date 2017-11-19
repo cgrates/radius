@@ -12,6 +12,7 @@ func NewCoder() Coder {
 		IPAddrValue:  codecs.AddressCodec{},
 		IntegerValue: codecs.IntegerCodec{},
 		TimeValue:    codecs.TimeCodec{},
+		OctetsValue:  codecs.OctetsCodec{},
 	}
 }
 

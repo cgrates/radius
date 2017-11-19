@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// TimeCodec is a codec for string values
+// TimeCodec is a codec for time values
 type TimeCodec struct{}
 
 // Decode is part of AVPCoder interface

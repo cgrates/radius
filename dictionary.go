@@ -28,6 +28,8 @@ const (
 	TimeValue    = "time"
 	IPAddrValue  = "ipaddr"
 	UnknownValue = "unknown"
+	// other value formats
+	OctetsValue = "octets"
 )
 
 var ErrUnsupportedAttributeType = errors.New("unsupported attribute type")
@@ -110,8 +112,9 @@ func parseDictionaryAttribute(input []string) (*DictionaryAttribute, error) {
 		return nil,
 			fmt.Errorf("attribute type <%d> must be lower than 255", attrNr)
 	}
+	attrType := strings.Split(input[3], "[")[0] // remove [8] from octet[8]
 	return &DictionaryAttribute{AttributeName: input[1],
-		AttributeNumber: uint8(attrNr), AttributeType: input[3]}, nil
+		AttributeNumber: uint8(attrNr), AttributeType: attrType}, nil
 }
 
 // dictionaryAttribute defines a dictionary mapping and type for an attribute.

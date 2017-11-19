@@ -5,7 +5,7 @@ import (
 	"unicode/utf8"
 )
 
-// TextCodec is a codec for string values
+// TextCodec is a codec for text values
 type TextCodec struct{}
 
 // Decode is part of AVPCoder interface
