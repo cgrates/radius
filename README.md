@@ -81,4 +81,4 @@ func main() {
 
 
 ```
-
+[![Build Status](https://secure.travis-ci.org/cgrates/radigo.png)](http://travis-ci.org/cgrates/radigo)
