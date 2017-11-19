@@ -92,6 +92,12 @@ BEGIN-VENDOR    Cisco
 ATTRIBUTE       Cisco-AVPair    1   string
 ATTRIBUTE       Cisco-NAS-Port  2	string
 END-VENDOR      Cisco
+
+BEGIN-VENDOR    Microsoft
+ATTRIBUTE       MS-CHAP-Response                        1       octets[50]
+ATTRIBUTE       MS-CHAP-Error                           2       string
+ATTRIBUTE       MS-CHAP-CPW-1                           3       octets[70]
+END-VENDOR Microsoft
 `
 	eDict := &Dictionary{
 		ac: map[uint32]map[uint8]*DictionaryAttribute{
@@ -119,6 +125,23 @@ END-VENDOR      Cisco
 					AttributeType:   "string",
 				},
 			},
+			311: map[uint8]*DictionaryAttribute{
+				1: &DictionaryAttribute{
+					AttributeName:   "MS-CHAP-Response",
+					AttributeNumber: 1,
+					AttributeType:   "octets[50]",
+				},
+				2: &DictionaryAttribute{
+					AttributeName:   "MS-CHAP-Error",
+					AttributeNumber: 2,
+					AttributeType:   "string",
+				},
+				3: &DictionaryAttribute{
+					AttributeName:   "MS-CHAP-CPW-1",
+					AttributeNumber: 3,
+					AttributeType:   "octets[70]",
+				},
+			},
 		},
 		an: map[string]map[string]*DictionaryAttribute{
 			"": map[string]*DictionaryAttribute{
@@ -143,6 +166,23 @@ END-VENDOR      Cisco
 					AttributeName:   "Cisco-NAS-Port",
 					AttributeNumber: 2,
 					AttributeType:   "string",
+				},
+			},
+			"Microsoft": map[string]*DictionaryAttribute{
+				"MS-CHAP-Response": &DictionaryAttribute{
+					AttributeName:   "MS-CHAP-Response",
+					AttributeNumber: 1,
+					AttributeType:   "octets[50]",
+				},
+				"MS-CHAP-Error": &DictionaryAttribute{
+					AttributeName:   "MS-CHAP-Error",
+					AttributeNumber: 2,
+					AttributeType:   "string",
+				},
+				"MS-CHAP-CPW-1": &DictionaryAttribute{
+					AttributeName:   "MS-CHAP-CPW-1",
+					AttributeNumber: 3,
+					AttributeType:   "octets[70]",
 				},
 			},
 		},
