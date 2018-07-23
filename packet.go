@@ -2,6 +2,7 @@ package radigo
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/binary"
@@ -194,6 +195,17 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 
 func (p *Packet) SetAVPValues() {
 	for _, avp := range p.AVPs {
+		if avp.Number == 2 && len(avp.RawValue) == 16 { // decode Password
+			pass := avp.RawValue
+			secAuth := append([]byte(p.secret), p.Authenticator[:]...)
+			m := crypto.Hash(crypto.MD5).New()
+			m.Write(secAuth)
+			md := m.Sum(nil)
+			for i := 0; i < len(pass); i++ {
+				pass[i] = pass[i] ^ md[i]
+			}
+			avp.RawValue = bytes.TrimRight(pass, string([]rune{0}))
+		}
 		if err := avp.SetValue(p.dict, p.coder); err != nil {
 			log.Printf("failed setting value for avp: %+v, err: %s\n", avp, err.Error())
 		}
