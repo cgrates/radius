@@ -68,6 +68,10 @@ func (c *syncedTCPConn) write(b []byte) (err error) {
 	return
 }
 
+func (c *syncedTCPConn) remoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+
 // syncedUDPConn write replies over a UDP connection
 type syncedUDPConn struct {
 	sync.Mutex
@@ -87,10 +91,15 @@ func (c *syncedUDPConn) write(b []byte) (err error) {
 	return
 }
 
+func (c *syncedUDPConn) remoteAddr() net.Addr {
+	return c.addr
+}
+
 // syncedConn is the interface for securely writing on both UDP and TCP connections
 type syncedConn interface {
 	getConnID() string
 	write([]byte) error
+	remoteAddr() net.Addr
 }
 
 // sendReply writes the reply over the synced connection
@@ -138,7 +147,7 @@ func (s *Server) RegisterHandler(code PacketCode, hndlr func(*Packet) (*Packet, 
 func (s *Server) handleRcvedBytes(rcv []byte, synConn syncedConn) {
 	pkt := &Packet{secret: s.secrets.GetSecret(synConn.getConnID()),
 		dict:  s.dicts.GetInstance(synConn.getConnID()),
-		coder: s.coder}
+		coder: s.coder, addr: synConn.remoteAddr()}
 	if err := pkt.Decode(rcv); err != nil {
 		log.Printf("error: <%s> when decoding packet", err.Error())
 		return
