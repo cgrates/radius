@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"sync"
 )
 
@@ -116,6 +117,7 @@ type Packet struct {
 	Identifier    uint8
 	Authenticator [16]byte
 	AVPs          []*AVP
+	addr          net.Addr
 }
 
 // Encode is used to encode the Packet into buffer b returning number of bytes written or error
@@ -345,4 +347,8 @@ func (p *Packet) AddAVPWithName(attrName, strVal, vendorName string) (err error)
 	}
 	p.AVPs = append(p.AVPs, avp)
 	return
+}
+
+func (pk *Packet) RemoteAddr() net.Addr {
+	return pk.addr
 }
