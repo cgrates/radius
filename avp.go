@@ -198,7 +198,7 @@ func (vsa *VSA) SetValue(dict *Dictionary, cdr Coder) (err error) {
 	vsa.Value = val
 	vsa.StringValue = strVal
 	if vsa.Type == IntegerValue { // Attempty aliasing string value with the one from enum
-		if dv := dict.ValueWithNumber(vsa.Name, vsa.Value.(uint8), vsa.Vendor); dv != nil {
+		if dv := dict.ValueWithNumber(vsa.Name, uint8(vsa.Value.(uint32)), vsa.Vendor); dv != nil {
 			vsa.StringValue = dv.ValueName
 		}
 	}
