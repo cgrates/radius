@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	MetaDefault = "*default" // default client
+	MetaDefault  = "*default" // default client
+	MaxPacketLen = 4095
 )
 
 // NewSecrets intantiates Secrets
@@ -104,7 +105,7 @@ type syncedConn interface {
 
 // sendReply writes the reply over the synced connection
 func sendReply(synConn syncedConn, rply *Packet) (err error) {
-	var buf [1024]byte
+	var buf [MaxPacketLen]byte
 	var n int
 	n, err = rply.Encode(buf[:])
 	if err != nil {
@@ -188,7 +189,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	synConn := &syncedTCPConn{conn: conn,
 		connID: connIDFromAddr(conn.RemoteAddr().String())}
 	for {
-		var b [1024]byte
+		var b [MaxPacketLen]byte
 		n, err := conn.Read(b[:])
 		if err != nil {
 			log.Printf("error: <%s> when reading packets, disconnecting...", err.Error())
@@ -210,7 +211,7 @@ func (s *Server) listenAndServeUDP() error {
 	}
 	defer pc.Close()
 	for {
-		var b [1024]byte
+		var b [MaxPacketLen]byte
 		n, addr, err := pc.ReadFrom(b[:])
 		if err != nil {
 			log.Printf("error: <%s> when reading packets over udp", err.Error())
@@ -220,7 +221,8 @@ func (s *Server) listenAndServeUDP() error {
 			log.Printf("error: <%s> when reading packets over udp", err.Error())
 			continue
 		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
-			log.Printf("error: unexpected packet length received over UDP")
+			log.Printf("error: unexpected packet length received over UDP, should be: <%d>, received: <%d>",
+				uint16(n), binary.BigEndian.Uint16(b[2:4]))
 		}
 		s.handleRcvedBytes(b[:n],
 			&syncedUDPConn{connID: connIDFromAddr(addr.String()), addr: addr, pc: pc})
