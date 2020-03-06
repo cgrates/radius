@@ -164,6 +164,11 @@ func (p *Packet) Decode(buf []byte) error {
 			return errors.New("invalid length")
 		}
 		avp.RawValue = append(avp.RawValue, b[2:length]...)
+		if validation, has := validation[avp.Number]; has {
+			if err := validation.Validate(p, avp); err != nil {
+				return err
+			}
+		}
 		p.AVPs = append(p.AVPs, avp)
 		b = b[length:]
 	}
@@ -196,6 +201,11 @@ func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
 
 func (p *Packet) SetAVPValues() {
 	for _, avp := range p.AVPs {
+		if validation, has := validation[avp.Number]; has {
+			if err := validation.Validate(p, avp); err != nil {
+				log.Printf("failed validating value for avp: %+v, err: %s\n", avp, err.Error())
+			}
+		}
 		if err := avp.SetValue(p.dict, p.coder); err != nil {
 			log.Printf("failed setting value for avp: %+v, err: %s\n", avp, err.Error())
 		}
