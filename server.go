@@ -146,6 +146,9 @@ func (s *Server) RegisterHandler(code PacketCode, hndlr func(*Packet) (*Packet, 
 
 // handleRcvBytes is common method for both udp and tcp to handle received bytes over network
 func (s *Server) handleRcvedBytes(rcv []byte, synConn syncedConn) {
+	if !isAuthenticReq(rcv, []byte(s.secrets.GetSecret(synConn.getConnID()))) {
+		return
+	}
 	pkt := &Packet{secret: s.secrets.GetSecret(synConn.getConnID()),
 		dict:  s.dicts.GetInstance(synConn.getConnID()),
 		coder: s.coder, addr: synConn.remoteAddr()}
@@ -167,6 +170,7 @@ func (s *Server) handleRcvedBytes(rcv []byte, synConn syncedConn) {
 		}()
 		return
 	}
+
 	go func() { // execute the handler asynchronously
 		rply, err := hndlr(pkt)
 		if err != nil {

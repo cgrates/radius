@@ -126,3 +126,43 @@ func TestRadClientAccount(t *testing.T) {
 		t.Errorf("Expecting: %+v, received: %+v", req.AVPs, reply.AVPs)
 	}
 }
+
+func TestRadClientAuthDifferentSecret(t *testing.T) {
+	// for this test the verify for authenticity is done on client side
+	// client.go line 143
+	authClnt, err := NewClient("tcp", "localhost:1812", "InvalidSecret", dict, 0, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	req := authClnt.NewRequest(AccessRequest, 1)
+	if err := req.AddAVPWithName("User-Name", "flopsy", ""); err != nil {
+		t.Error(err)
+	}
+	if err := req.AddAVPWithName("Cisco-NAS-Port", "CGR1", "Cisco"); err != nil {
+		t.Error(err)
+	}
+	_, err = authClnt.SendRequest(req)
+	if err == nil || err.Error() != "invalid packet" {
+		t.Error(err)
+	}
+
+}
+
+func TestRadClientAccountDifferentSecret(t *testing.T) {
+	acntClnt, err := NewClient("tcp", "localhost:1813", "InvalidSecret", dict, 0, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	req := acntClnt.NewRequest(AccountingRequest, 2)
+	if err := req.AddAVPWithName("User-Name", "flopsy", ""); err != nil {
+		t.Error(err)
+	}
+	if err := req.AddAVPWithName("Cisco-NAS-Port", "CGR1", "Cisco"); err != nil {
+		t.Error(err)
+	}
+	_, err = acntClnt.SendRequest(req)
+	if err == nil || err.Error() != "invalid packet" {
+		t.Error(err)
+	}
+
+}
