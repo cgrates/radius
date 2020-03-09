@@ -167,7 +167,12 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 	if err != nil {
 		return
 	}
-	rpl = <-rplyChn
+	select {
+	case rpl = <-rplyChn:
+	case <-time.After(1 * time.Second):
+		rpl = nil
+	}
+
 	if rpl == nil {
 		return nil, errors.New("invalid packet")
 	}
