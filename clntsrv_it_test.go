@@ -39,7 +39,7 @@ func TestRadServerStart(t *testing.T) {
 
 # Attributes
 ATTRIBUTE    User-Name    1    string
-ATTRIBUTE    Password     2    string
+ATTRIBUTE    User-Password     2    string
 
 # Alias values
 VALUE    Framed-Protocol    PPP    1
