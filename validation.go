@@ -2,7 +2,7 @@ package radigo
 
 import (
 	"bytes"
-	"crypto"
+	"crypto/md5"
 	"errors"
 	"fmt"
 )
@@ -34,21 +34,38 @@ func (v Validation) Validate(p *Packet, attr *AVP) error {
 }
 
 func DecodeUserPassword(p *Packet, a *AVP) error {
-	//Decode password. XOR against md5(p.server.secret+Authenticator)
-	secAuth := append([]byte(nil), []byte(p.secret)...)
-	secAuth = append(secAuth, p.Authenticator[:]...)
-	m := crypto.Hash(crypto.MD5).New()
-	m.Write(secAuth)
-	md := m.Sum(nil)
-	pass := a.RawValue
-	if len(pass) == 16 {
-		for i := 0; i < len(pass); i++ {
-			pass[i] = pass[i] ^ md[i]
-		}
-		a.RawValue = bytes.TrimRight(pass, string([]rune{0}))
-		return nil
+	if len(p.secret) == 0 {
+		return errors.New("empty secret")
 	}
-	return errors.New("not implemented for password > 16")
+
+	dec := make([]byte, 0, len(a.RawValue))
+
+	hash := md5.New()
+	hash.Write([]byte(p.secret))
+	hash.Write(p.Authenticator[:])
+	dec = hash.Sum(dec)
+
+	for i, b := range a.RawValue[:16] {
+		dec[i] ^= b
+	}
+
+	for i := 16; i < len(a.RawValue); i += 16 {
+		hash.Reset()
+		hash.Write([]byte(p.secret))
+		hash.Write(a.RawValue[i-16 : i])
+		dec = hash.Sum(dec)
+
+		for j, b := range a.RawValue[i : i+16] {
+			dec[i+j] ^= b
+		}
+	}
+
+	if i := bytes.IndexByte(dec, 0); i > -1 {
+		a.RawValue = dec[:i]
+	}
+	a.RawValue = dec
+	return nil
+
 }
 
 var validation = map[uint8]Validation{

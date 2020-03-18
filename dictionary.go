@@ -38,10 +38,10 @@ var RFC2865Dict = `
 # Originally copied from FreeRADIUS dictionary
 
 ATTRIBUTE	User-Name		1	string
-ATTRIBUTE	Password		2	string
+ATTRIBUTE	User-Password		2	string
 ATTRIBUTE	CHAP-Password		3	string
 ATTRIBUTE	NAS-IP-Address		4	ipaddr
-ATTRIBUTE	NAS-Port-Id		5	integer
+ATTRIBUTE	NAS-Port		5	integer
 ATTRIBUTE	Service-Type		6	integer
 ATTRIBUTE	Framed-Protocol		7	integer
 ATTRIBUTE	Framed-IP-Address	8	ipaddr
