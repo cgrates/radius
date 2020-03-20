@@ -3,7 +3,6 @@ package radigo
 import (
 	"bytes"
 	"crypto/md5"
-	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -37,8 +36,8 @@ var (
 func computeAuthenticator(raw []byte, secret string) (acator [16]byte) {
 	pCode := PacketCode(raw[0])
 	switch pCode {
-	case AccessRequest: // we generate the packet
-		rand.Read(acator[:]) // generate a random authenticator
+	case AccessRequest:
+		copy(acator[:], raw[4:20])
 	case AccessAccept, AccessReject, AccessChallenge, AccountingRequest, AccountingResponse:
 		if pCode == AccountingRequest { // AccountingRequest concatenates null instead of previous authenticator so we trick it here
 			var nul [16]byte

@@ -1,6 +1,7 @@
 package radigo
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"log"
@@ -179,12 +180,18 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 	return
 }
 
-// NewRequest produces new client request
+// NewRequest produces new client request with an random Authenticator
 func (c *Client) NewRequest(code PacketCode, id uint8) (req *Packet) {
-	return &Packet{
+	var buff [16]byte
+	if _, err := rand.Read(buff[:]); err != nil {
+		panic(err)
+	}
+	req = &Packet{
 		Code:       code,
 		Identifier: id,
 		dict:       c.dict,
 		coder:      c.coder,
 	}
+	copy(req.Authenticator[:], buff[:])
+	return
 }

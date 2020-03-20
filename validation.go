@@ -75,3 +75,29 @@ var validation = map[uint8]Validation{
 	4: {4, 4, nil},                   //NASIPAddress
 	5: {1, 4, nil},                   //NASPort
 }
+
+func EncodePass(plaintext, secret, requestAuthenticator []byte) []byte {
+	chunks := (len(plaintext) + 16 - 1) / 16
+	if chunks == 0 {
+		chunks = 1
+	}
+	enc := make([]byte, 0, chunks*16)
+	hash := md5.New()
+	hash.Write(secret)
+	hash.Write(requestAuthenticator)
+	enc = hash.Sum(enc)
+	for i, b := range plaintext[:16] {
+		enc[i] ^= b
+	}
+	for i := 16; i < len(plaintext); i += 16 {
+		hash.Reset()
+		hash.Write(secret)
+		hash.Write(enc[i-16 : i])
+		enc = hash.Sum(enc)
+
+		for j, b := range plaintext[i : i+16] {
+			enc[i+j] ^= b
+		}
+	}
+	return enc
+}
