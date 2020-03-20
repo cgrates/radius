@@ -74,3 +74,21 @@ VALUE    Framed-Protocol    PPP    1
 		t.Errorf("Received: %x", avp.RawValue)
 	}
 }
+
+func TestEncodeDecodeUserPassword(t *testing.T) {
+	pkt := &Packet{
+		secret: "CGRateS.org",
+		Authenticator: [16]byte{0x2a, 0xee, 0x86, 0xf0, 0x8d, 0x0d, 0x55, 0x96, 0x9c, 0xa5, 0x97, 0x8e,
+			0x0d, 0x33, 0x67, 0xa2},
+	}
+	pass := "CGRateSPassword1"
+	encd := EncodePass([]byte(pass), []byte(pkt.secret), pkt.Authenticator[:])
+	avp := &AVP{RawValue: encd}
+	if err := DecodeUserPassword(pkt, avp); err != nil {
+		t.Error(err)
+	}
+	if string(avp.RawValue) != pass {
+		t.Errorf("Expected <%q> received <%q>", pass, string(avp.RawValue))
+	}
+
+}
