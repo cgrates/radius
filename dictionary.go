@@ -289,13 +289,13 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 				continue
 			}
 			dict.Lock()
-			if dVndr, has := dict.vn[flds[1]]; !has {
+			dVndr, has := dict.vn[flds[1]]
+			dict.Unlock()
+			if !has {
 				log.Printf("dictioanry line: %d, <unknown vendor name: %s>", lnNr, flds[1])
 				continue
-			} else {
-				dict.vndr = dVndr // activate a new vendor for indexing
 			}
-			dict.Unlock()
+			dict.vndr = dVndr // activate a new vendor for indexing
 
 		case EndVendorKeyword:
 			if len(flds) < 2 {
@@ -303,16 +303,17 @@ func (dict *Dictionary) ParseFromReader(rdr io.Reader) (err error) {
 				continue
 			}
 			dict.Lock()
-			if dVndr, has := dict.vn[flds[1]]; !has {
+			dVndr, has := dict.vn[flds[1]]
+			dict.Unlock()
+			if !has {
 				log.Printf("dictioanry line: %d, <unknown vendor name: %s>", lnNr, flds[1])
 				continue
-			} else if dict.vndr.VendorNumber != dVndr.VendorNumber {
+			}
+			if dict.vndr.VendorNumber != dVndr.VendorNumber {
 				log.Printf("line: %d, <no BEGIN_VENDOR for vendor name: %s>", lnNr, flds[1])
 				continue
-			} else {
-				dict.vndr = new(DictionaryVendor)
 			}
-			dict.Unlock()
+			dict.vndr = new(DictionaryVendor)
 
 		case IncludeFileKeyword: // ToDo
 		default:

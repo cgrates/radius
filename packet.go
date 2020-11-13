@@ -238,7 +238,7 @@ func (p *Packet) SetCodeWithName(codeName string) (err error) {
 	return
 }
 
-// Attributes queries AVPs matching the attrNr
+// AttributesWithNumber queries AVPs matching the attrNr
 // if vendorCode is defined, AttributesWithNumber will query VSAs
 func (p *Packet) AttributesWithNumber(attrNr uint8, vendorCode uint32) (avps []*AVP) {
 	p.RLock()

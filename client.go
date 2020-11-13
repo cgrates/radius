@@ -48,9 +48,8 @@ func NewClient(net, address string, secret string, dict *Dictionary,
 // Client is a thread-safe RADIUS client
 type Client struct {
 	conn         net.Conn
-	connMux      sync.RWMutex   // protects the connection
-	stopReading  *chan struct{} // signals stop reading of events
-	net          string         // udp/tcp
+	stopReading  chan struct{} // signals stop reading of events
+	net          string        // udp/tcp
 	address      string
 	secret       string
 	dict         *Dictionary
@@ -67,7 +66,6 @@ func (c *Client) connect(connAttempts int) (err error) {
 	if c.conn != nil {
 		c.disconnect()
 	}
-	c.connMux.Lock()
 	connDelay := fib()
 	var i int
 	for {
@@ -75,9 +73,8 @@ func (c *Client) connect(connAttempts int) (err error) {
 		var conn net.Conn
 		if conn, err = net.Dial(c.net, c.address); err == nil {
 			c.conn = conn
-			stopReading := make(chan struct{})
-			c.stopReading = &stopReading
-			go c.readReplies(stopReading)
+			c.stopReading = make(chan struct{})
+			go c.readReplies(c.stopReading)
 			break
 		}
 		if connAttempts != -1 && i >= connAttempts { // Maximum reconnects reached, -1 for infinite reconnects
@@ -85,21 +82,18 @@ func (c *Client) connect(connAttempts int) (err error) {
 		}
 		time.Sleep(time.Duration(connDelay()) * time.Second) // sleep before new attempt
 	}
-	c.connMux.Unlock()
 	return
 }
 
 // disconnect empties the connection and informs all handlers waiting for an answer
 func (c *Client) disconnect() {
-	c.connMux.Lock()
 	if c.conn != nil {
 		c.conn = nil
 	}
 	if c.stopReading != nil {
-		close(*c.stopReading)
+		close(c.stopReading)
 		c.stopReading = nil
 	}
-	c.connMux.Unlock()
 	c.aReqsMux.Lock()
 	for key, pHndlr := range c.activeReqs { // close all active requests with error
 		delete(c.activeReqs, key)
@@ -116,9 +110,7 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 		default: // Unlock waiting here
 		}
 		var b [4096]byte
-		c.connMux.RLock()
 		n, err := c.conn.Read(b[:])
-		c.connMux.RUnlock()
 		if err != nil {
 			log.Printf("error <%s> when reading connection", err.Error())
 			c.disconnect()
@@ -162,9 +154,7 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 	c.aReqsMux.Lock()
 	c.activeReqs[req.Identifier] = &packetReplyHandler{req, rplyChn}
 	c.aReqsMux.Unlock()
-	c.connMux.RLock()
 	_, err = c.conn.Write(buf[:n])
-	c.connMux.RUnlock()
 	if err != nil {
 		return
 	}
