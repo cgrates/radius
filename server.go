@@ -53,7 +53,6 @@ func connIDFromAddr(addr string) (connID string) {
 
 // syncedTCPConn writes replies over a TCP connection
 type syncedTCPConn struct {
-	sync.Mutex
 	connID string
 	conn   net.Conn
 }
@@ -63,9 +62,7 @@ func (c *syncedTCPConn) getConnID() string {
 }
 
 func (c *syncedTCPConn) write(b []byte) (err error) {
-	c.Lock()
 	_, err = c.conn.Write(b)
-	c.Unlock()
 	return
 }
 
@@ -75,7 +72,6 @@ func (c *syncedTCPConn) remoteAddr() net.Addr {
 
 // syncedUDPConn write replies over a UDP connection
 type syncedUDPConn struct {
-	sync.Mutex
 	connID string
 	addr   net.Addr
 	pc     net.PacketConn
@@ -86,9 +82,7 @@ func (c *syncedUDPConn) getConnID() string {
 }
 
 func (c *syncedUDPConn) write(b []byte) (err error) {
-	c.Lock()
 	_, err = c.pc.WriteTo(b, c.addr)
-	c.Unlock()
 	return
 }
 
