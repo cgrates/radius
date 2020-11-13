@@ -202,20 +202,29 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	}
 }
 
-func (s *Server) listenAndServeUDP() error {
+func (s *Server) listenAndServeUDP(stopChan <-chan struct{}) error {
 	pc, err := net.ListenPacket("udp", s.addr)
 	if err != nil {
 		return err
 	}
-	defer pc.Close()
+	go func() {
+		<-stopChan
+		pc.Close()
+	}()
 	for {
+		select {
+		case <-stopChan:
+			return nil
+		default:
+		}
 		var b [MaxPacketLen]byte
 		n, addr, err := pc.ReadFrom(b[:])
 		if err != nil {
-			log.Printf("error: <%s> when reading packets over udp", err.Error())
-			continue
-		}
-		if err != nil {
+			// in case the server was closed exit
+			// update this if when 1.16 is out: https://github.com/golang/go/issues/4373
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				return nil
+			}
 			log.Printf("error: <%s> when reading packets over udp", err.Error())
 			continue
 		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
@@ -227,30 +236,43 @@ func (s *Server) listenAndServeUDP() error {
 	}
 }
 
-func (s *Server) listenAndServeTCP() error {
+func (s *Server) listenAndServeTCP(stopChan <-chan struct{}) error {
 	ln, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		log.Printf("RadiusServer, ListenAndServe, err %s\n", err.Error())
 		return err
 	}
+	go func() {
+		<-stopChan
+		ln.Close()
+	}()
 	for {
+		select {
+		case <-stopChan:
+			return nil
+		default:
+		}
 		conn, err := ln.Accept()
 		if err != nil {
+			// in case the server was closed exit
+			// update this if when 1.16 is out: https://github.com/golang/go/issues/4373
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				return nil
+			}
 			log.Printf("error: <%s>, when establishing new connection", err.Error())
 			continue
 		}
 		go s.handleTCPConn(conn)
 	}
-	return nil
 }
 
 // ListenAndServe binds to a port and serves requests
-func (s *Server) ListenAndServe() error {
+func (s *Server) ListenAndServe(stopChan <-chan struct{}) error {
 	switch s.net {
 	case "udp":
-		return s.listenAndServeUDP()
+		return s.listenAndServeUDP(stopChan)
 	case "tcp":
-		return s.listenAndServeTCP()
+		return s.listenAndServeTCP(stopChan)
 	default:
 		return fmt.Errorf("unsupported network: <%s>", s.net)
 	}

@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	dict *Dictionary
+	dict     *Dictionary
+	stopChan = make(chan struct{})
 )
 
 func handleAuth(req *Packet) (rpl *Packet, err error) {
@@ -63,10 +64,10 @@ END-VENDOR      Cisco
 	dicts := NewDictionaries(map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()})
 	go NewServer("tcp", "localhost:1812",
 		secrets, dicts,
-		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}, nil).ListenAndServe()
+		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}, nil).ListenAndServe(stopChan)
 	go NewServer("tcp", "localhost:1813",
 		secrets, dicts,
-		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}, nil).ListenAndServe()
+		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}, nil).ListenAndServe(stopChan)
 }
 
 func TestRadClientAuth(t *testing.T) {
@@ -165,4 +166,5 @@ func TestRadClientAccountDifferentSecret(t *testing.T) {
 		t.Error(err)
 	}
 
+	close(stopChan)
 }
