@@ -1,9 +1,11 @@
 package radigo
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -90,5 +92,184 @@ func TestEncodeDecodeUserPassword(t *testing.T) {
 	if string(avp.RawValue) != pass {
 		t.Errorf("Expected <%q> received <%q>", pass, string(avp.RawValue))
 	}
+}
 
+func TestAVPEncode(t *testing.T) {
+	a := &AVP{
+		RawValue: []byte("test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test"),
+	}
+	b := make([]byte, 255)
+	experr := "value too big for attribute"
+	rcv, err := a.Encode(b)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if rcv != 0 {
+		t.Errorf("\nExpected 0, \nReceived: <%+v>", rcv)
+	}
+}
+
+func TestAVPGetStringValueNonVendorNr(t *testing.T) {
+	a := &AVP{
+		Number:      1,
+		StringValue: "testString",
+	}
+
+	exp := "testString"
+	rcv := a.GetStringValue()
+
+	if exp != rcv {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+}
+
+func TestAVPGetStringValueVendorSpecificNr(t *testing.T) {
+	a := &AVP{
+		Number:      VendorSpecificNumber,
+		StringValue: "testString",
+		Value: &VSA{
+			StringValue: "test",
+		},
+	}
+
+	exp := "test"
+	rcv := a.GetStringValue()
+
+	if exp != rcv {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+}
+
+func TestAVPSetValueExists(t *testing.T) {
+	a := &AVP{
+		Value: &VSA{},
+	}
+	dict := &Dictionary{}
+	var cdr Coder
+
+	err := a.SetValue(dict, cdr)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+}
+
+func TestAVPSetValueNoData(t *testing.T) {
+	a := &AVP{
+		Number: 1,
+	}
+	dict := &Dictionary{}
+	var cdr Coder
+
+	experr := fmt.Sprintf("no dictionary data for avp: %+v", a)
+	err := a.SetValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+// func TestAVPSetValue1(t *testing.T) {
+// 	a := &AVP{
+// 		Number:   1,
+// 		Name:     "name",
+// 		RawValue: []byte{0x00, 0x00, 0x00, 0x09, 0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67},
+// 	}
+// 	dict := &Dictionary{
+// 		valNr: map[uint32]map[string]map[uint8]*DictionaryValue{
+// 			1: {
+// 				"key": {
+// 					1: &DictionaryValue{
+// 						AttributeName: "attrName",
+// 						ValueName:     "valName",
+// 						ValueNumber:   10,
+// 					},
+// 				},
+// 			},
+// 		},
+// 		RWMutex: sync.RWMutex{},
+// 		ac: map[uint32]map[uint8]*DictionaryAttribute{
+// 			NoVendor: {
+// 				1: &DictionaryAttribute{
+// 					AttributeName:   "testName",
+// 					AttributeNumber: 2,
+// 					AttributeType:   IntegerValue,
+// 				},
+// 			},
+// 		},
+// 	}
+// 	cdr := Coder{
+// 		IntegerValue: codecs.IntegerCodec{},
+// 	}
+
+// 	experr := fmt.Sprintf("no dictionary data for avp: %+v", a)
+// 	err := a.SetValue(dict, cdr)
+
+// 	if err == nil || err.Error() != experr {
+// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+// 	}
+// }
+
+type coderMock struct {
+	err error
+}
+
+func (cM *coderMock) Decode([]byte) (interface{}, string, error) {
+	cM.err = fmt.Errorf("error")
+	return nil, "", cM.err
+}
+func (cM *coderMock) Encode(interface{}) ([]byte, error) {
+	return nil, nil
+}
+func (cM *coderMock) EncodeString(string) ([]byte, error) {
+	return nil, nil
+}
+
+func TestAVPSetValue2(t *testing.T) {
+	a := &AVP{
+		Number:   1,
+		Name:     "name",
+		RawValue: []byte{0x00, 0x00, 0x00, 0x09, 0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67},
+	}
+	dict := &Dictionary{
+		RWMutex: sync.RWMutex{},
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				1: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: 2,
+					AttributeType:   "testType",
+				},
+			},
+		},
+	}
+	cdr := Coder{
+		"testType": &coderMock{},
+	}
+
+	experr := "error"
+	err := a.SetValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPNewVSAFromAVP(t *testing.T) {
+	avp := &AVP{
+		Number: 1,
+	}
+
+	experr := "not VSA type"
+	rcv, err := NewVSAFromAVP(avp)
+
+	if err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if rcv != nil {
+		t.Errorf("\nExpected nil, \nReceived: <%+v>", rcv)
+	}
 }
