@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/cgrates/radigo/codecs"
 )
 
 func TestVSAToAVP(t *testing.T) {
@@ -171,46 +173,45 @@ func TestAVPSetValueNoData(t *testing.T) {
 	}
 }
 
-// func TestAVPSetValue1(t *testing.T) {
-// 	a := &AVP{
-// 		Number:   1,
-// 		Name:     "name",
-// 		RawValue: []byte{0x00, 0x00, 0x00, 0x09, 0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67},
-// 	}
-// 	dict := &Dictionary{
-// 		valNr: map[uint32]map[string]map[uint8]*DictionaryValue{
-// 			1: {
-// 				"key": {
-// 					1: &DictionaryValue{
-// 						AttributeName: "attrName",
-// 						ValueName:     "valName",
-// 						ValueNumber:   10,
-// 					},
-// 				},
-// 			},
-// 		},
-// 		RWMutex: sync.RWMutex{},
-// 		ac: map[uint32]map[uint8]*DictionaryAttribute{
-// 			NoVendor: {
-// 				1: &DictionaryAttribute{
-// 					AttributeName:   "testName",
-// 					AttributeNumber: 2,
-// 					AttributeType:   IntegerValue,
-// 				},
-// 			},
-// 		},
-// 	}
-// 	cdr := Coder{
-// 		IntegerValue: codecs.IntegerCodec{},
-// 	}
+func TestAVPSetValueInteger(t *testing.T) {
+	a := &AVP{
+		Number:   1,
+		Name:     VendorSpecificName,
+		RawValue: []byte{0x00, 0x00, 0x00, 0x09, 0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67},
+	}
+	dict := &Dictionary{
+		valNr: map[uint32]map[string]map[uint8]*DictionaryValue{
+			NoVendor: {
+				"testName": {
+					uint8(9): &DictionaryValue{
+						AttributeName: "attrName",
+						ValueName:     "valName",
+						ValueNumber:   10,
+					},
+				},
+			},
+		},
+		RWMutex: sync.RWMutex{},
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				1: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: 2,
+					AttributeType:   IntegerValue,
+				},
+			},
+		},
+	}
+	cdr := Coder{
+		IntegerValue: codecs.IntegerCodec{},
+	}
 
-// 	experr := fmt.Sprintf("no dictionary data for avp: %+v", a)
-// 	err := a.SetValue(dict, cdr)
+	err := a.SetValue(dict, cdr)
 
-// 	if err == nil || err.Error() != experr {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
-// 	}
-// }
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+}
 
 type coderMock struct {
 	err error
@@ -227,7 +228,7 @@ func (cM *coderMock) EncodeString(string) ([]byte, error) {
 	return nil, nil
 }
 
-func TestAVPSetValue2(t *testing.T) {
+func TestAVPSetValueDecodeFail(t *testing.T) {
 	a := &AVP{
 		Number:   1,
 		Name:     "name",
@@ -257,6 +258,50 @@ func TestAVPSetValue2(t *testing.T) {
 	}
 }
 
+func TestAVPSetValueUnsupportedAttribute(t *testing.T) {
+	a := &AVP{
+		Number:   1,
+		Name:     "name",
+		RawValue: []byte{0x00, 0x00, 0x00, 0x09, 0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67},
+	}
+	dict := &Dictionary{
+		RWMutex: sync.RWMutex{},
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				1: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: 2,
+					AttributeType:   "testType",
+				},
+			},
+		},
+	}
+	var cdr Coder
+
+	err := a.SetValue(dict, cdr)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+}
+
+func TestAVPSetValueVSA(t *testing.T) {
+	a := &AVP{
+		Number:   VendorSpecificNumber,
+		RawValue: []byte{0x00, 0x00, 0x00, 0x09, 0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67},
+	}
+
+	dict := &Dictionary{}
+	var cdr Coder
+
+	experr := fmt.Sprintf("DICTIONARY_NOT_FOUND, attribute: <%d>, vendor: <%d>", 23, 9)
+	err := a.SetValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
 func TestAVPNewVSAFromAVP(t *testing.T) {
 	avp := &AVP{
 		Number: 1,
@@ -270,6 +315,314 @@ func TestAVPNewVSAFromAVP(t *testing.T) {
 	}
 
 	if rcv != nil {
-		t.Errorf("\nExpected nil, \nReceived: <%+v>", rcv)
+		t.Errorf("\nExpected nil, \nReceived: %+v", rcv)
+	}
+}
+
+func TestAVPSetRawValueNonEmptyRawValue(t *testing.T) {
+	a := &AVP{
+		RawValue: []byte("not empty"),
+	}
+	var dict *Dictionary
+	var cdr Coder
+
+	err := a.SetRawValue(dict, cdr)
+
+	if err != nil {
+		t.Errorf("\nExpected nil, \nReceived: %+v", err)
+	}
+}
+
+func TestAVPSetRawValueEmptyValues(t *testing.T) {
+	a := &AVP{}
+	var dict *Dictionary
+	var cdr Coder
+
+	experr := fmt.Sprintf("avp: %+v, no value", a)
+	err := a.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPSetRawValueEmptyDictAttr(t *testing.T) {
+	a := &AVP{
+		Name:   "name",
+		Number: 1,
+		Value: &VSA{
+			StringValue: "test",
+		},
+		StringValue: "testString",
+	}
+
+	dict := &Dictionary{}
+	var cdr Coder
+
+	experr := fmt.Sprintf("%+v, missing dictionary data", a)
+	err := a.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPSetRawValueVSACastFail(t *testing.T) {
+	a := &AVP{
+		Name:        "",
+		Number:      VendorSpecificNumber,
+		StringValue: "testString",
+	}
+	dict := &Dictionary{
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				VendorSpecificNumber: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: VendorSpecificNumber,
+					AttributeType:   IntegerValue,
+				},
+			},
+		},
+	}
+
+	var cdr Coder
+
+	exp := &AVP{
+		Name:        "testName",
+		Number:      VendorSpecificNumber,
+		StringValue: "testString",
+		Type:        "integer",
+	}
+	experr := fmt.Sprintf("%+v, cannot cast to VSA", exp)
+	err := a.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPSetRawValueEmptyVSA(t *testing.T) {
+	a := &AVP{
+		Name:        "",
+		Number:      VendorSpecificNumber,
+		StringValue: "testString",
+		Value: &VSA{
+			Value:       nil,
+			StringValue: "",
+		},
+	}
+	dict := &Dictionary{
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				VendorSpecificNumber: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: VendorSpecificNumber,
+					AttributeType:   IntegerValue,
+				},
+			},
+		},
+	}
+
+	var cdr Coder
+
+	experr := fmt.Sprintf("no value in VSA: %+v", a.Value)
+	err := a.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPSetRawValueUnsupportedAttribute1(t *testing.T) {
+	a := &AVP{
+		Name:        "",
+		Type:        IntegerValue,
+		Number:      1,
+		StringValue: "testString",
+		Value: &VSA{
+			Value:       nil,
+			StringValue: "",
+		},
+	}
+
+	dict := &Dictionary{
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				VendorSpecificNumber: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: VendorSpecificNumber,
+					AttributeType:   IntegerValue,
+				},
+			},
+		},
+	}
+
+	var cdr Coder
+
+	experr := "unsupported attribute type"
+	err := a.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPSetRawValueUnsupportedAttribute2(t *testing.T) {
+	a := &AVP{
+		Name:        "",
+		Type:        IntegerValue,
+		Number:      1,
+		StringValue: "testString",
+	}
+	dict := &Dictionary{
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				VendorSpecificNumber: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: VendorSpecificNumber,
+					AttributeType:   IntegerValue,
+				},
+			},
+		},
+	}
+
+	var cdr Coder
+
+	experr := "unsupported attribute type"
+	err := a.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPVSASetValueExists(t *testing.T) {
+	vsa := &VSA{
+		Value: "not empty",
+	}
+
+	var dict *Dictionary
+	var cdr Coder
+
+	err := vsa.SetValue(dict, cdr)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+}
+
+func TestAVPVSASetValueUnsupportedAttribute1(t *testing.T) {
+	vsa := &VSA{
+		Number: VendorSpecificNumber,
+		Vendor: NoVendor,
+	}
+
+	dict := &Dictionary{
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				VendorSpecificNumber: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: 2,
+					AttributeType:   "testType",
+				},
+			},
+		},
+	}
+
+	cdr := Coder{
+		"testType": &coderMock{},
+	}
+
+	experr := "error"
+	err := vsa.SetValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPVSASetValueUnsupportedAttribute2(t *testing.T) {
+	vsa := &VSA{
+		Number: VendorSpecificNumber,
+		Vendor: NoVendor,
+	}
+
+	dict := &Dictionary{
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				VendorSpecificNumber: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: 2,
+					AttributeType:   "testType",
+				},
+			},
+		},
+	}
+
+	cdr := Coder{
+		IntegerValue: codecs.IntegerCodec{},
+	}
+
+	err := vsa.SetValue(dict, cdr)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+}
+
+func TestAVPVSASetValueTypeInteger(t *testing.T) {
+	vsa := &VSA{
+		Number:   VendorSpecificNumber,
+		Type:     IntegerValue,
+		Vendor:   NoVendor,
+		RawValue: []byte{0x00, 0x00, 0x00, 0x09, 0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67},
+	}
+
+	dict := &Dictionary{
+		valNr: map[uint32]map[string]map[uint8]*DictionaryValue{
+			NoVendor: {
+				"testName": {
+					9: &DictionaryValue{
+						AttributeName: "testName",
+						ValueName:     "testValue",
+						ValueNumber:   2,
+					},
+				},
+			},
+		},
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			NoVendor: {
+				VendorSpecificNumber: &DictionaryAttribute{
+					AttributeName:   "testName",
+					AttributeNumber: 2,
+					AttributeType:   IntegerValue,
+				},
+			},
+		},
+	}
+
+	cdr := Coder{
+		IntegerValue: codecs.IntegerCodec{},
+	}
+
+	err := vsa.SetValue(dict, cdr)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+}
+
+func TestAVPVSASetRawValue(t *testing.T) {
+	vsa := &VSA{
+		RawValue: []byte("not empty"),
+	}
+
+	var dict *Dictionary
+	var cdr Coder
+
+	err := vsa.SetRawValue(dict, cdr)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
 	}
 }
