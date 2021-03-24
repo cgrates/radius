@@ -211,6 +211,7 @@ func TestAVPSetValueInteger(t *testing.T) {
 	if err != nil {
 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
 	}
+
 }
 
 type coderMock struct {
@@ -281,7 +282,11 @@ func TestAVPSetValueUnsupportedAttribute(t *testing.T) {
 	err := a.SetValue(dict, cdr)
 
 	if err != nil {
-		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if a.Value != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, a.Value)
 	}
 }
 
@@ -566,7 +571,11 @@ func TestAVPVSASetValueUnsupportedAttribute2(t *testing.T) {
 	err := vsa.SetValue(dict, cdr)
 
 	if err != nil {
-		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if vsa.Value != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, vsa.Value)
 	}
 }
 
@@ -605,14 +614,19 @@ func TestAVPVSASetValueTypeInteger(t *testing.T) {
 		IntegerValue: codecs.IntegerCodec{},
 	}
 
+	var expval interface{} = uint32(9)
 	err := vsa.SetValue(dict, cdr)
 
 	if err != nil {
-		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if expval != vsa.Value {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", expval, vsa.Value)
 	}
 }
 
-func TestAVPVSASetRawValue(t *testing.T) {
+func TestAVPVSASetRawValueExists(t *testing.T) {
 	vsa := &VSA{
 		RawValue: []byte("not empty"),
 	}
@@ -624,5 +638,141 @@ func TestAVPVSASetRawValue(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+}
+
+func TestAVPVSASetRawValueNoType(t *testing.T) {
+	vsa := &VSA{
+		StringValue: "testString",
+		Name:        "testName",
+	}
+
+	dict := &Dictionary{}
+	cdr := Coder{}
+
+	experr := fmt.Sprintf("no vendor in dictionary for VSA: %+v, ", vsa)
+	err := vsa.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPVSASetRawValueNoVendor(t *testing.T) {
+	vsa := &VSA{
+		StringValue: "testString",
+		Name:        "testName",
+		Vendor:      1,
+	}
+
+	dict := &Dictionary{
+		RWMutex: sync.RWMutex{},
+		vc: map[uint32]*DictionaryVendor{
+			1: {
+				VendorName:   "VendorName",
+				VendorNumber: 2,
+				Format:       "format",
+			},
+		},
+	}
+	cdr := Coder{}
+
+	expvsa := &VSA{
+		StringValue: "testString",
+		Name:        "testName",
+		Vendor:      1,
+		VendorName:  dict.vc[vsa.Vendor].VendorName,
+	}
+	experr := fmt.Sprintf("missing dictionary data for VSA: %+v, ", expvsa)
+
+	err := vsa.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPVSASetRawValueSuccess(t *testing.T) {
+	vsa := &VSA{
+		StringValue: "123",
+		Number:      1,
+		Vendor:      VendorSpecificNumber,
+	}
+	dict := &Dictionary{
+		ac: map[uint32]map[uint8]*DictionaryAttribute{
+			VendorSpecificNumber: {
+				1: &DictionaryAttribute{
+					AttributeName:   "dictName",
+					AttributeNumber: 2,
+					AttributeType:   IntegerValue,
+				},
+			},
+		},
+	}
+	cdr := Coder{
+		IntegerValue: codecs.IntegerCodec{},
+	}
+
+	// experr := ""
+	err := vsa.SetRawValue(dict, cdr)
+
+	if err != nil {
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	exp := []byte{0, 0, 0, 123}
+
+	if !reflect.DeepEqual(exp, vsa.RawValue) {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, vsa.RawValue)
+	}
+}
+
+func TestAVPVSASetRawValueUnsupportedAttribute1(t *testing.T) {
+	vsa := &VSA{
+		StringValue: "123",
+		Value:       5,
+		Type:        IntegerValue,
+	}
+	var dict *Dictionary
+	var cdr Coder
+
+	experr := "unsupported attribute type"
+	err := vsa.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestAVPVSASetRawValueUnsupportedAttribute2(t *testing.T) {
+	vsa := &VSA{
+		StringValue: "123",
+		Type:        IntegerValue,
+		VendorName:  "vendor",
+		Name:        "name",
+	}
+
+	dict := &Dictionary{
+		RWMutex: sync.RWMutex{},
+		valName: map[string]map[string]map[string]*DictionaryValue{
+			"vendor": {
+				"name": {
+					"123": &DictionaryValue{
+						AttributeName: "attrName",
+						ValueName:     "valName",
+						ValueNumber:   2,
+					},
+				},
+			},
+		},
+	}
+
+	var cdr Coder
+
+	experr := "unsupported attribute type"
+	err := vsa.SetRawValue(dict, cdr)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
 	}
 }

@@ -44,10 +44,7 @@ func (a *AVP) SetValue(dict *Dictionary, cdr Coder) (err error) {
 		return
 	}
 	if a.Number == VendorSpecificNumber { // Special handling of VSA values
-		vsa, err := NewVSAFromAVP(a)
-		if err != nil {
-			return err
-		}
+		vsa, _ := NewVSAFromAVP(a)
 		if err := vsa.SetValue(dict, cdr); err != nil {
 			return err
 		}
