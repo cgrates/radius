@@ -1,7 +1,9 @@
 package radigo
 
 import (
+	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -117,4 +119,152 @@ func TestPacketEncode(t *testing.T) {
 		t.Errorf("Expecting: % x, received: % x", ePktEncd, buf[:n])
 	}
 
+}
+
+func TestPacketStringer(t *testing.T) {
+	p := AccessRequest
+	exp := "AccessRequest"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = AccessAccept
+	exp = "AccessAccept"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = AccessReject
+	exp = "AccessReject"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = AccountingRequest
+	exp = "AccountingRequest"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = AccountingResponse
+	exp = "AccountingResponse"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = AccessChallenge
+	exp = "AccessChallenge"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = StatusServer
+	exp = "StatusServer"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = StatusClient
+	exp = "StatusClient"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = Reserved
+	exp = "Reserved"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+
+	p = PacketCode(60)
+	exp = "unknown packet code"
+	if rcv := p.String(); rcv != exp {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+}
+
+func TestPacketHas(t *testing.T) {
+	p := &Packet{
+		AVPs: []*AVP{
+			{
+				Number: 1,
+			},
+			{
+				Number: 25,
+			},
+			{
+				Number: 5,
+			},
+		},
+	}
+	attrNr := uint8(5)
+
+	rcv := p.Has(attrNr)
+
+	if rcv != true {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", true, rcv)
+	}
+}
+
+func TestPacketHasNot(t *testing.T) {
+	p := &Packet{
+		AVPs: []*AVP{
+			{
+				Number: 1,
+			},
+			{
+				Number: 25,
+			},
+			{
+				Number: 5,
+			},
+		},
+	}
+	attrNr := uint8(6)
+
+	rcv := p.Has(attrNr)
+
+	if rcv != false {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", false, rcv)
+	}
+}
+
+func TestPacketNewPacket(t *testing.T) {
+	exp := &Packet{
+		Code:       Reserved,
+		Identifier: uint8(5),
+		dict:       &Dictionary{},
+		coder:      Coder{},
+		secret:     "testString",
+	}
+
+	rcv := NewPacket(Reserved, uint8(5), &Dictionary{}, Coder{}, "testString")
+
+	if !reflect.DeepEqual(rcv, exp) {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+}
+
+func TestPacketEncodeNilRawValue(t *testing.T) {
+	b := make([]byte, 100)
+	p := &Packet{
+		RWMutex:       sync.RWMutex{},
+		Code:          Reserved,
+		Identifier:    uint8(5),
+		Authenticator: [16]byte{1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6},
+		AVPs: []*AVP{
+			{Number: 0},
+			{Number: 1},
+		},
+	}
+
+	experr := fmt.Sprintf("avp: %+v, no value", p.AVPs[0])
+	n, err := p.Encode(b)
+	if err == nil || err.Error() != experr {
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if n != 0 {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", 0, n)
+	}
 }
