@@ -1,6 +1,7 @@
 package radigo
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -414,5 +415,80 @@ func TestNewDictionaryFromFolderWithRFC2865(t *testing.T) {
 	}
 	if dict.vndr.VendorNumber != 0 {
 		t.Error(dict.vndr)
+	}
+}
+
+func TestDictionaryparseDictionaryAttributeInvalidValue(t *testing.T) {
+	input := []string{"1", "2", "256", "4"}
+
+	experr := fmt.Sprintf("attribute type <%d> must be lower than 255", 256)
+	da, err := parseDictionaryAttribute(input)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if da != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, da)
+	}
+}
+
+func TestDictionaryparseDictionaryValueInvalidLen(t *testing.T) {
+	input := []string{"test"}
+
+	experr := fmt.Sprintf("invalid value definition: %v", input)
+	dv, err := parseDictionaryValue(input)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if dv != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, dv)
+	}
+}
+
+func TestDictionaryparseDictionaryValueInvalidValue(t *testing.T) {
+	input := []string{"1", "2", "3", "invalid", "5"}
+
+	experr := fmt.Sprintf("strconv.Atoi: parsing \"%s\": invalid syntax", input[3])
+	dv, err := parseDictionaryValue(input)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if dv != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, dv)
+	}
+}
+
+func TestDictionaryparseDictionaryVendorInvalidLen(t *testing.T) {
+	input := []string{"1", "2"}
+
+	experr := fmt.Sprintf("invalid vendor definition: %v", input)
+	dvndr, err := parseDictionaryVendor(input)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if dvndr != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, dvndr)
+	}
+}
+
+func TestDictionaryparseDictionaryVendorInvalidValue(t *testing.T) {
+	input := []string{"1", "2", "invalid"}
+
+	experr := fmt.Sprintf("strconv.Atoi: parsing \"%s\": invalid syntax", input[2])
+	dvndr, err := parseDictionaryVendor(input)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if dvndr != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, dvndr)
 	}
 }
