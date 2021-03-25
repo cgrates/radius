@@ -29,11 +29,11 @@ type Validation struct {
 func (v Validation) Validate(p *Packet, attr *AVP) error {
 
 	if len(attr.RawValue) < v.MinLength {
-		return errors.New(fmt.Sprintf("value too short for : %+v", attr))
+		return fmt.Errorf("value too short for : %+v", attr)
 	}
 
 	if v.MaxLength != UNLIMITED && len(attr.RawValue) > v.MaxLength {
-		return errors.New(fmt.Sprintf("value too long for : %+v", attr))
+		return fmt.Errorf("value too long for : %+v", attr)
 	}
 
 	if v.Decode != nil {
