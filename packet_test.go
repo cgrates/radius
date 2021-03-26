@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -367,7 +369,7 @@ func TestPacketNegativeReplyAccounting(t *testing.T) {
 	}
 }
 
-func TestPacketSetAVPValues(t *testing.T) {
+func TestPacketSetAVPValuesFailSet(t *testing.T) {
 	p := &Packet{
 		dict:  &Dictionary{},
 		coder: Coder{},
@@ -375,11 +377,32 @@ func TestPacketSetAVPValues(t *testing.T) {
 			{Number: 1},
 		},
 	}
+
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	experrset := fmt.Sprintf("no dictionary data for avp: %+v", p.AVPs[0])
+	expset := fmt.Sprintf("failed setting value for avp: %+v, err: %s\n", p.AVPs[0], experrset)
+
+	experrvalid := fmt.Sprintf("value too short for : %+v", p.AVPs[0])
+	expvalid := fmt.Sprintf("failed validating value for avp: %+v, err: %s\n", p.AVPs[0], experrvalid)
 
 	p.SetAVPValues()
-	t.Logf(buf.String())
+
+	rcv := strings.SplitN(buf.String(), "\n", 2)
+	rcv[0] = rcv[0][20:]
+	rcv[1] = rcv[1][20:]
+
+	if !strings.Contains(buf.String(), expset) {
+		t.Errorf("\nExpected: %+v , \nReceived: %+v", expset, rcv[0])
+	}
+
+	if !strings.Contains(buf.String(), expvalid) {
+		t.Errorf("\nExpected: %+v , \nReceived: %+v", expvalid, rcv[1])
+	}
 }
 
 func TestPacketSetCodeWithName(t *testing.T) {
@@ -729,7 +752,24 @@ func TestPacketAttributesWithNumber1(t *testing.T) {
 			{},
 		},
 	}
-	_ = p.AttributesWithNumber(1, NoVendor)
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+
+	expseterr := fmt.Sprintf("no dictionary data for avp: %+v", p.AVPs[0])
+	experr := fmt.Sprintf("failed setting value for avp: %+v, err: %s\n", p.AVPs[0], expseterr)
+
+	rcv := p.AttributesWithNumber(1, NoVendor)
+
+	if rcv != nil {
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, rcv)
+	}
+
+	if rcv := buf.String(); !strings.Contains(rcv, experr) {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, rcv)
+	}
+
 }
 
 func TestPacketAttributesWithNumber2(t *testing.T) {
@@ -744,10 +784,15 @@ func TestPacketAttributesWithNumber2(t *testing.T) {
 			},
 		},
 	}
-	_ = p.AttributesWithNumber(1, 2)
+
+	rcv := p.AttributesWithNumber(1, 2)
+
+	if rcv != nil {
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, rcv)
+	}
 }
 
-func TestPacket123(t *testing.T) {
+func TestPacketAttributesWithNumber3(t *testing.T) {
 	p := &Packet{
 		dict: &Dictionary{
 			ac: map[uint32]map[uint8]*DictionaryAttribute{
@@ -768,10 +813,24 @@ func TestPacket123(t *testing.T) {
 				Number: 26,
 				RawValue: []byte{0x00, 0x00, 0x00, 0x09,
 					0x17, 0x0d, 0x43, 0x47, 0x52, 0x61, 0x74, 0x65, 0x53, 0x2e, 0x6f, 0x72, 0x67},
+				Value: "notVSA",
 			},
 		},
 	}
 
-	_ = p.AttributesWithNumber(1, 2)
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+	experr := fmt.Sprintf("failed converting VSA value for AVP: %+v\n", p.AVPs[0])
+	rcv := p.AttributesWithNumber(1, 2)
 
+	if rcverr := buf.String(); !strings.Contains(rcverr, experr) {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, rcverr[20:])
+	}
+
+	if rcv != nil {
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, rcv)
+	}
 }
