@@ -1,9 +1,13 @@
 package radigo
 
 import (
+	"bytes"
 	"fmt"
+	"log"
+	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -490,5 +494,372 @@ func TestDictionaryparseDictionaryVendorInvalidValue(t *testing.T) {
 
 	if dvndr != nil {
 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, dvndr)
+	}
+}
+
+func TestDictionaryNewDictionaryFromFolderWithRFC2865(t *testing.T) {
+	dirPath := "invalidPath"
+
+	experr := fmt.Sprintf("stat %s: no such file or directory", dirPath)
+	rcv, err := NewDictionaryFromFolderWithRFC2865(dirPath)
+
+	if err == nil || err.Error() != experr {
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+
+	if rcv != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, rcv)
+	}
+}
+
+type readerMock struct {
+	err error
+}
+
+func (rM *readerMock) Read(p []byte) (n int, err error) {
+	rM.err = fmt.Errorf("invalid reader")
+	return 0, rM.err
+}
+
+func TestDictionaryParseFromReaderFailRead(t *testing.T) {
+	dict := &Dictionary{}
+	reader := &readerMock{}
+
+	experr := "invalid reader"
+	err := dict.ParseFromReader(reader)
+
+	if err == nil || err.Error() != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestDictionaryParseFromReaderErrAttribute(t *testing.T) {
+	dict := &Dictionary{}
+
+	reader := bytes.NewBufferString(AttributeKeyword + "\n\n")
+	experr := fmt.Sprintf("invalid attribute definition: [%v]", AttributeKeyword)
+	explogerr := fmt.Sprintf("dictionary line: %d, <%s>", 1, experr)
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryParseFromReaderErrValue(t *testing.T) {
+	dict := &Dictionary{}
+
+	reader := bytes.NewBufferString(ValueKeyword + "\n\n")
+	experr := fmt.Sprintf("invalid value definition: [%v]", ValueKeyword)
+	explogerr := fmt.Sprintf("dictionary line: %d, <%s>", 1, experr)
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryParseFromReaderErrVendor(t *testing.T) {
+	dict := &Dictionary{}
+
+	reader := bytes.NewBufferString(VendorKeyword + "\n\n")
+	experr := fmt.Sprintf("invalid vendor definition: [%v]", VendorKeyword)
+	explogerr := fmt.Sprintf("dictionary line: %d, <%s>", 1, experr)
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryParseFromReaderErrBeginVendorLen(t *testing.T) {
+	dict := &Dictionary{}
+
+	reader := bytes.NewBufferString(BeginVendorKeyword + "\n\n")
+	explogerr := fmt.Sprintf("dictionary line: %d, <mandatory inFormation missing>", 1)
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryParseFromReaderErrBeginVendorUnknown(t *testing.T) {
+	dict := &Dictionary{}
+
+	reader := bytes.NewBufferString(BeginVendorKeyword + " vendor2 vendor3" + "\n\n")
+	explogerr := fmt.Sprintf("dictioanry line: %d, <unknown vendor name: %s>", 1, "vendor2")
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryParseFromReaderErrEndVendorLen(t *testing.T) {
+	dict := &Dictionary{}
+
+	reader := bytes.NewBufferString(EndVendorKeyword + "\n\n")
+	explogerr := fmt.Sprintf("dictionary line: %d, <mandatory inFormation missing>", 1)
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryParseFromReaderErrEndVendorUnknown(t *testing.T) {
+	dict := &Dictionary{}
+
+	reader := bytes.NewBufferString(EndVendorKeyword + " vendor2 vendor3" + "\n\n")
+	explogerr := fmt.Sprintf("dictioanry line: %d, <unknown vendor name: %s>", 1, "vendor2")
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryParseFromReaderErrEndVendorNotFound(t *testing.T) {
+	dict := &Dictionary{
+		RWMutex: sync.RWMutex{},
+		vndr: &DictionaryVendor{
+			VendorNumber: 1,
+		},
+		vn: map[string]*DictionaryVendor{
+			"vendor2": {
+				VendorNumber: 2,
+			},
+		},
+	}
+
+	reader := bytes.NewBufferString(EndVendorKeyword + " vendor2 vendor3" + "\n\n")
+	explogerr := fmt.Sprintf("line: %d, <no BEGIN_VENDOR for vendor name: %s>", 1, "vendor2")
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryParseFromReaderErrDefault(t *testing.T) {
+	dict := &Dictionary{}
+
+	reader := bytes.NewBufferString("invalid" + "\n\n")
+	explogerr := fmt.Sprintf("dictionary line: %d, <unsupported keyword: %s>", 1, "invalid")
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	err := dict.ParseFromReader(reader)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	if !strings.Contains(buf.String(), explogerr) {
+		t.Errorf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			explogerr,
+			buf.String()[20:20+len(explogerr)],
+		)
+	}
+}
+
+func TestDictionaryValueWithNameNoDictValue(t *testing.T) {
+	attr, val, vendor := "attrName", "valName", "vendorName"
+	dict := &Dictionary{
+		valName: map[string]map[string]map[string]*DictionaryValue{
+			vendor: {},
+		},
+	}
+
+	rcv := dict.ValueWithName(attr, val, vendor)
+
+	if rcv != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, rcv)
+	}
+}
+
+func TestDictionaryValueWithNumberNoDictValue1(t *testing.T) {
+	attr := "attrName"
+	val := uint8(1)
+	vendor := uint32(2)
+	dict := &Dictionary{
+		valNr: map[uint32]map[string]map[uint8]*DictionaryValue{},
+	}
+
+	rcv := dict.ValueWithNumber(attr, val, vendor)
+
+	if rcv != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, rcv)
+	}
+}
+
+func TestDictionaryValueWithNoDictValue2(t *testing.T) {
+	attr := "attrName"
+	val := uint8(1)
+	vendor := uint32(2)
+	dict := &Dictionary{
+		valNr: map[uint32]map[string]map[uint8]*DictionaryValue{
+			vendor: {},
+		},
+	}
+
+	rcv := dict.ValueWithNumber(attr, val, vendor)
+
+	if rcv != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, rcv)
+	}
+}
+
+func TestDictionaryNewDictionaries(t *testing.T) {
+	var dicts map[string]*Dictionary
+
+	exp := &Dictionaries{}
+	rcv := NewDictionaries(dicts)
+
+	if len(exp.dicts) != len(rcv.dicts) && len(rcv.dicts) == 0 {
+		t.Fatalf(
+			"\nExpected: <%+v>, \nReceived: <%+v>",
+			len(exp.dicts),
+			len(rcv.dicts),
+		)
+	}
+}
+
+func TestDictionaryGetInstance(t *testing.T) {
+	dts := &Dictionaries{
+		RWMutex: sync.RWMutex{},
+	}
+	instance := "test"
+
+	rcv := dts.GetInstance(instance)
+
+	if rcv != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, rcv)
 	}
 }
