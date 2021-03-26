@@ -332,26 +332,28 @@ func (dict *Dictionary) ParseFromFolder(dirPath string) (err error) {
 	} else if !fi.IsDir() {
 		return fmt.Errorf("path: %s not a directory.", dirPath)
 	}
-	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			return nil
-		}
-		dictFiles, err := filepath.Glob(filepath.Join(path, "dictionary.*"))
-		if err != nil {
+	return filepath.Walk(dirPath, dict.walkFunc)
+}
+
+func (dict *Dictionary) walkFunc(path string, info os.FileInfo, err error) error {
+	if !info.IsDir() {
+		return nil
+	}
+	dictFiles, err := filepath.Glob(filepath.Join(path, "dictionary.*"))
+	if err != nil {
+		return err
+	}
+	if dictFiles == nil { // No need of processing further since there are no config files in the folder
+		return nil
+	}
+	for _, dictFilePath := range dictFiles {
+		if file, err := os.Open(dictFilePath); err != nil {
+			return err
+		} else if err = dict.ParseFromReader(file); err != nil {
 			return err
 		}
-		if dictFiles == nil { // No need of processing further since there are no config files in the folder
-			return nil
-		}
-		for _, dictFilePath := range dictFiles {
-			if file, err := os.Open(dictFilePath); err != nil {
-				return err
-			} else if err = dict.ParseFromReader(file); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }
 
 // DictionaryAttribute queries Dictionary for Attribute having specific number
