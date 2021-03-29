@@ -5,6 +5,7 @@ package radigo
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -55,9 +56,50 @@ func TestDictionaryParseFromFolderEmptyFile(t *testing.T) {
 	}
 }
 
-// func TestDictionaryParseFromFolder2(t *testing.T) {
+func TestDictionaryParseFromFolderBadPattern(t *testing.T) {
+	dict := &Dictionary{}
+	dirPath := "[]"
+
+	err := os.Mkdir(dirPath, 0755)
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dirPath)
+
+	experr := filepath.ErrBadPattern
+	err = dict.ParseFromFolder(dirPath)
+
+	if err == nil || err != experr {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+func TestDictionaryParseFromFolderNoPermission(t *testing.T) {
+	dict := &Dictionary{}
+	dirPath := "/tmp/TestDictionaryParseFromFolderNoPermission"
+
+	err := os.Mkdir(dirPath, 0755)
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dirPath)
+
+	err = os.WriteFile(dirPath+"/dictionary.txt", []byte("testString"), 0311)
+	if err != nil {
+		t.Error(err)
+	}
+	e := fmt.Errorf("permission denied")
+	experr := &os.PathError{Op: "open", Path: dirPath + "/dictionary.txt", Err: e}
+	err = dict.ParseFromFolder(dirPath)
+
+	if err == nil || err.Error() != experr.Error() {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
+	}
+}
+
+// func TestDictionaryParseFromFolderFailParse(t *testing.T) {
 // 	dict := &Dictionary{}
-// 	dirPath := "/tmp/TestDictionaryParseFromFolderEmptyFile"
+// 	dirPath := "/tmp/TestDictionaryParseFromFolderFailParse"
 
 // 	err := os.Mkdir(dirPath, 0755)
 // 	if err != nil {
@@ -65,14 +107,15 @@ func TestDictionaryParseFromFolderEmptyFile(t *testing.T) {
 // 	}
 // 	defer os.RemoveAll(dirPath)
 
-// 	err = ioutil.WriteFile(dirPath+"/dictionary.", []byte("testString"), 0644)
+// 	err = os.WriteFile(dirPath+"/dictionary.txt", []byte("12\n3"), 0644)
 // 	if err != nil {
 // 		t.Error(err)
 // 	}
-
+// 	e := fmt.Errorf("permission denied")
+// 	experr := &os.PathError{Op: "open", Path: dirPath + "/dictionary.txt", Err: e}
 // 	err = dict.ParseFromFolder(dirPath)
 
-// 	if err != nil {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+// 	if err == nil || err.Error() != experr.Error() {
+// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
 // 	}
 // }
