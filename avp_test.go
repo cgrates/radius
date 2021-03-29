@@ -86,7 +86,7 @@ func TestEncodeDecodeUserPassword(t *testing.T) {
 			0x0d, 0x33, 0x67, 0xa2},
 	}
 	pass := "CGRateSPassword1"
-	encd := EncodeUserPassWord([]byte(pass), []byte(pkt.secret), pkt.Authenticator[:])
+	encd := EncodeUserPassword([]byte(pass), []byte(pkt.secret), pkt.Authenticator[:])
 	avp := &AVP{RawValue: encd}
 	if err := DecodeUserPassword(pkt, avp); err != nil {
 		t.Error(err)
