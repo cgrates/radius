@@ -85,12 +85,10 @@ var validation = map[uint8]Validation{
 	5: {1, 4, nil},                   //NASPort
 }
 
-func EncodeUserPassWord(plaintext, secret, requestAuthenticator []byte) []byte {
-	chunks := (len(plaintext) + 16 - 1) / 16
-	if chunks == 0 {
-		chunks = 1
-	}
-	enc := make([]byte, 0, chunks*16)
+// EncodeUserPassword encodes the plaintext, where plaintext's length needs to
+// be greater than 16 and a multiple of 16.
+func EncodeUserPassword(plaintext, secret, requestAuthenticator []byte) []byte {
+	enc := make([]byte, 0, len(plaintext))
 	hash := md5.New()
 	hash.Write(secret)
 	hash.Write(requestAuthenticator)
