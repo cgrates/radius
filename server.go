@@ -2,6 +2,7 @@ package radigo
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -220,9 +221,7 @@ func (s *Server) listenAndServeUDP(stopChan <-chan struct{}) error {
 		var b [MaxPacketLen]byte
 		n, addr, err := pc.ReadFrom(b[:])
 		if err != nil {
-			// in case the server was closed exit
-			// update this if when 1.16 is out: https://github.com/golang/go/issues/4373
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if errors.Is(err, net.ErrClosed) {
 				return nil
 			}
 			log.Printf("error: <%s> when reading packets over udp", err.Error())
@@ -254,9 +253,7 @@ func (s *Server) listenAndServeTCP(stopChan <-chan struct{}) error {
 		}
 		conn, err := ln.Accept()
 		if err != nil {
-			// in case the server was closed exit
-			// update this if when 1.16 is out: https://github.com/golang/go/issues/4373
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if errors.Is(err, net.ErrClosed) {
 				return nil
 			}
 			log.Printf("error: <%s>, when establishing new connection", err.Error())
