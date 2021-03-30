@@ -173,9 +173,7 @@ func (c *Client) SendRequest(req *Packet) (rpl *Packet, err error) {
 // NewRequest produces new client request with an random Authenticator
 func (c *Client) NewRequest(code PacketCode, id uint8) (req *Packet) {
 	var buff [16]byte
-	if _, err := rand.Read(buff[:]); err != nil {
-		panic(err)
-	}
+	rand.Read(buff[:])
 	req = &Packet{
 		Code:       code,
 		Identifier: id,
