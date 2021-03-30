@@ -167,12 +167,7 @@ func isAuthenticReq(request, secret []byte) bool {
 // ToUTF16 takes an ASCII string and turns it into a UCS-2 / UTF-16 representation
 func ToUTF16(in string) ([]byte, error) {
 	encoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
-	pwd, err := encoder.Bytes([]byte(in))
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return pwd, nil
+	return encoder.Bytes([]byte(in))
 }
 
 // GenerateNTResponse - rfc2759, 8.1
