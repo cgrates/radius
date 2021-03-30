@@ -107,15 +107,20 @@ func TestDictionaryParseFromFolderNoPermission(t *testing.T) {
 // 	}
 // 	defer os.RemoveAll(dirPath)
 
-// 	err = os.WriteFile(dirPath+"/dictionary.txt", []byte("12\n3"), 0644)
+// 	f, err := os.Create(dirPath + "/dictionary.txt")
 // 	if err != nil {
 // 		t.Error(err)
 // 	}
-// 	e := fmt.Errorf("permission denied")
-// 	experr := &os.PathError{Op: "open", Path: dirPath + "/dictionary.txt", Err: e}
+// 	f.Write([]byte("123\n"))
+// 	for i := 0; i < 70000; i++ {
+// 		f.Write([]byte("123"))
+// 	}
+// 	f.Write([]byte("123\n"))
+// 	f.Close()
+// 	experr := ""
 // 	err = dict.ParseFromFolder(dirPath)
 
-// 	if err == nil || err.Error() != experr.Error() {
+// 	if err == nil || err.Error() != experr {
 // 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
 // 	}
 // }

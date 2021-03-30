@@ -1,7 +1,9 @@
 package radigo
 
 import (
+	"crypto/md5"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 )
@@ -141,18 +143,25 @@ func TestValidationAuthenticateCHAP3(t *testing.T) {
 	}
 }
 
-// func TestValidationEncodeCHAPPassword(t *testing.T) {
-// 	pw := []byte("passwd")
-// 	auth := []byte("authenticator")
+func TestValidationEncodeCHAPPassword(t *testing.T) {
+	rand.Seed(10)
 
-// 	exp := []byte{}
-// 	rand.Seed(10)
-// 	rcv := EncodeCHAPPassword(pw, auth)
+	pw := []byte("passwd")
+	auth := []byte("authenticator")
 
-// 	if !reflect.DeepEqual(rcv, exp) {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
-// 	}
-// }
+	rcv := EncodeCHAPPassword(pw, auth)
+	h := md5.New()
+	h.Write(rcv[:1])
+	h.Write(pw)
+	h.Write(auth)
+	exp := make([]byte, 17)
+	exp[0] = rcv[0]
+	copy(exp[1:], h.Sum(nil))
+
+	if !reflect.DeepEqual(rcv, exp) {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+}
 
 func TestValidationisAuthenticReq(t *testing.T) {
 	request := []byte("tooshort")
@@ -165,7 +174,7 @@ func TestValidationisAuthenticReq(t *testing.T) {
 	}
 }
 
-func TestValidationToUTF16Success(t *testing.T) {
+func TestValidationToUTF16(t *testing.T) {
 	in := "testString"
 
 	exp := []byte{
@@ -181,21 +190,6 @@ func TestValidationToUTF16Success(t *testing.T) {
 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
 	}
 }
-
-// func TestValidationToUTF16Fail(t *testing.T) {
-// 	in := ""
-// 	exp := []byte{}
-// 	experr := ""
-// 	rcv, err := ToUTF16(in)
-
-// 	if err == nil || err.Error() != experr {
-// 		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
-// 	}
-
-// 	if !reflect.DeepEqual(rcv, exp) {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
-// 	}
-// }
 
 func TestValidationGenerateNTResponseSuccess(t *testing.T) {
 	authChallenge := []byte{}
@@ -217,31 +211,22 @@ func TestValidationGenerateNTResponseSuccess(t *testing.T) {
 	}
 }
 
-// func TestValidationGenerateNTResponseFail(t *testing.T) {
-// 	authChallenge := []byte{}
-// 	peerChallenge := []byte{}
-// 	user := "username"
-// 	pw := "password"
-
-// 	exp := []byte{}
-// 	experr := ""
-// 	rcv, err := GenerateNTResponse(authChallenge, peerChallenge, user, pw)
-
-// 	if err == nil || err.Error() != experr {
-// 		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
-// 	}
-
-// 	if !reflect.DeepEqual(rcv, exp) {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
-// 	}
-// }
-
 func TestValidationDESCrypt(t *testing.T) {
-	key := []byte{}
-	clear := []byte{}
+	key := []byte("key")
+	clear := []byte("")
 	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
+		exp := "crypto/des: invalid key size 3"
+		r := recover()
+
+		if r == nil {
+			t.Error("Expected to panic")
+		}
+
+		if r != nil {
+			rcv := r.(error)
+			if rcv.Error() != exp {
+				t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+			}
 		}
 	}()
 	DESCrypt(key, clear)
@@ -266,57 +251,23 @@ func TestValidationGenerateAuthenticatorResponseSuccess(t *testing.T) {
 	}
 }
 
-// func TestValidationGenerateAuthenticatorResponseFail(t *testing.T) {
-// 	authChallenge := []byte{1}
-// 	peerChallenge := []byte{2}
-// 	ntResponse := []byte{3}
-// 	user := "username"
-// 	pw := "password"
+func TestValidationGenerateClientMSCHAPResponseSuccess(t *testing.T) {
 
-// 	exp := ""
-// 	experr := ""
-// 	rcv, err := GenerateAuthenticatorResponse(authChallenge, peerChallenge, ntResponse, user, pw)
+	auth := [16]byte{0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5}
+	user := "username"
+	pw := "password"
 
-// 	if err == nil || err.Error() != experr {
-// 		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
-// 	}
+	exp := make([]byte, 50)
+	rcv, err := GenerateClientMSCHAPResponse(auth, user, pw)
+	exp[0] = rcv[0]
+	copy(exp[2:18], rcv[2:18])
+	copy(exp[26:50], rcv[26:50])
 
-// 	if rcv != exp {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
-// 	}
-// }
+	if err != nil {
+		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
 
-// func TestValidationGenerateClientMSCHAPResponseSuccess(t *testing.T) {
-// 	auth := [16]byte{0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5}
-// 	user := "username"
-// 	pw := "password"
-
-// 	exp := []byte{}
-// 	rcv, err := GenerateClientMSCHAPResponse(auth, user, pw)
-
-// 	if err != nil {
-// 		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
-// 	}
-
-// 	if !reflect.DeepEqual(rcv, exp) {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
-// 	}
-// }
-
-// func TestValidationGenerateClientMSCHAPResponseFail(t *testing.T) {
-// 	auth := [16]byte{0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5}
-// 	user := "username"
-// 	pw := "password"
-
-// 	exp := []byte{}
-// 	experr := ""
-// 	rcv, err := GenerateClientMSCHAPResponse(auth, user, pw)
-
-// 	if err == nil || err.Error() != experr {
-// 		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
-// 	}
-
-// 	if !reflect.DeepEqual(rcv, exp) {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
-// 	}
-// }
+	if !reflect.DeepEqual(rcv, exp) {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+	}
+}
