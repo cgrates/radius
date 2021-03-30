@@ -273,6 +273,7 @@ func TestServerListenAndServeUDPCasestopChan(t *testing.T) {
 }
 
 func TestServerListenAndServeFail(t *testing.T) {
+	stopChan := make(chan struct{})
 	srv := &Server{
 		net: "invalid",
 	}
@@ -300,6 +301,7 @@ func TestServerlistenAndServeTCPCasestopChan(t *testing.T) {
 }
 
 func TestServerlistenAndServeTCPInvalidAddress(t *testing.T) {
+	stopChan := make(chan struct{})
 	srv := &Server{
 		net:  "tcp",
 		addr: "invalid",
@@ -324,6 +326,7 @@ func TestServerlistenAndServeTCPInvalidAddress(t *testing.T) {
 }
 
 func TestServerlistenAndServeUDPInvalidAddress(t *testing.T) {
+	stopChan := make(chan struct{})
 	srv := &Server{
 		net:  "udp",
 		addr: "invalid",
