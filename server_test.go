@@ -160,26 +160,226 @@ func TestServerRegisterHandler(t *testing.T) {
 	srv.RegisterHandler(code, hndlr)
 }
 
-// type syncedMock struct{}
+type pcMock struct {
+	testcase string
+}
 
-// func (sM *syncedMock) getConnID() string {
-// 	return ""
-// }
-// func (sM *syncedMock) write([]byte) error {
-// 	return nil
-// }
-// func (sM *syncedMock) remoteAddr() net.Addr {
-// 	return nil
-// }
+func (pM *pcMock) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	return 0, nil, nil
+}
 
-// func TestServerhandleRcvedBytes(t *testing.T) {
-// 	srv := &Server{
-// 		secrets: &Secrets{},
-// 	}
-// 	rcv := make([]byte, 0)
-// 	synConn := syncedMock{}
-// 	srv.handleRcvedBytes(rcv, synConn)
-// }
+func (pM *pcMock) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	switch pM.testcase {
+	case "sendReply err":
+		return 0, fmt.Errorf("WriteTo error")
+	}
+	return 0, nil
+}
+
+func (pM *pcMock) Close() error {
+	return nil
+}
+
+func (pM *pcMock) LocalAddr() net.Addr {
+	return nil
+}
+
+func (pM *pcMock) SetDeadline(t time.Time) error {
+	return nil
+}
+
+func (pM *pcMock) SetReadDeadline(t time.Time) error {
+	return nil
+}
+
+func (pM *pcMock) SetWriteDeadline(t time.Time) error {
+	return nil
+}
+
+func TestServerhandleRcvedBytesDecodeFail(t *testing.T) {
+	srv := &Server{
+		secrets: &Secrets{
+			secrets: map[string]string{
+				"key": "value",
+			},
+		},
+		dicts: &Dictionaries{
+			dicts: map[string]*Dictionary{
+				"key": {},
+			},
+		},
+	}
+	rcv := []byte{
+		0x00, 0xff, 0x02, 0x02, 0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x04,
+		0x05, 0x05, 0x05, 0x05, 0x05, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
+	}
+	var synConn syncedConn = &syncedUDPConn{
+		connID: "key",
+	}
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	srv.handleRcvedBytes(rcv, synConn)
+	explog := fmt.Sprintf("error: <%s> when decoding packet\n", "invalid length")
+	rcvlog := buf.String()[20:]
+
+	if !reflect.DeepEqual(rcvlog, explog) {
+		t.Errorf("\nexpected: <%+v>, \nreceived: <%+v>", explog, rcvlog)
+	}
+}
+
+func TestServerhandleRcvedBytesNoKey(t *testing.T) {
+	srv := &Server{
+		secrets: &Secrets{
+			secrets: map[string]string{
+				"key": "value",
+			},
+		},
+		dicts: &Dictionaries{
+			dicts: map[string]*Dictionary{
+				"key": {},
+			},
+		},
+	}
+	rcv := []byte{
+		0x00, 0x03, 0x02, 0x02, 0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x04,
+		0x05, 0x05, 0x05, 0x05, 0x05, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
+		0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x08, 0x08, 0x08, 0x08,
+	}
+	var synConn syncedConn = &syncedUDPConn{
+		connID: "key",
+		addr: &net.UDPAddr{
+			IP: net.IP{127, 0, 0, 1},
+		},
+		pc: &pcMock{
+			testcase: "sendReply err",
+		},
+	}
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	srv.handleRcvedBytes(rcv, synConn)
+	time.Sleep((9 * time.Millisecond))
+	explog := fmt.Sprintf("error: <no handler for packet with code: %d>", 0)
+	rcvlog := buf.String()[20 : 20+len(explog)]
+
+	if !reflect.DeepEqual(rcvlog, explog) {
+		t.Errorf("\nexpected: <%+v>, \nreceived: <%+v>", explog, rcvlog)
+	}
+	explog = "error: <WriteTo error> sending reply\n"
+	rcvlog = buf.String()[41+len(rcvlog):]
+
+	if !reflect.DeepEqual(rcvlog, explog) {
+		t.Errorf("\nexpected: <%+v>, \nreceived: <%+v>", explog, rcvlog)
+	}
+}
+
+func TestServerhandleRcvedBytesEmptyHandlerReply(t *testing.T) {
+	srv := &Server{
+		secrets: &Secrets{
+			secrets: map[string]string{
+				"key": "value",
+			},
+		},
+		dicts: &Dictionaries{
+			dicts: map[string]*Dictionary{
+				"key": {},
+			},
+		},
+		reqHandlers: map[PacketCode]func(*Packet) (*Packet, error){
+			1: func(p *Packet) (*Packet, error) {
+				return nil, nil
+			},
+		},
+	}
+	rcv := []byte{
+		0x01, 0x03, 0x02, 0x02, 0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x04,
+		0x05, 0x05, 0x05, 0x05, 0x05, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
+		0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x08, 0x08, 0x08, 0x08,
+	}
+	var synConn syncedConn = &syncedUDPConn{
+		connID: "key",
+		addr: &net.UDPAddr{
+			IP: net.IP{127, 0, 0, 1},
+		},
+		pc: &pcMock{
+			testcase: "sendReply err",
+		},
+	}
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	srv.handleRcvedBytes(rcv, synConn)
+	time.Sleep(10 * time.Millisecond)
+	explog := "warning: empty reply received from handler\n"
+	rcvlog := buf.String()[20:]
+
+	if !reflect.DeepEqual(rcvlog, explog) {
+		t.Errorf("\nexpected: <%+v>, \nreceived: <%+v>", explog, rcvlog)
+	}
+}
+
+func TestServerhandleRcvedBytesSendReplyFail(t *testing.T) {
+	srv := &Server{
+		secrets: &Secrets{
+			secrets: map[string]string{
+				"key": "value",
+			},
+		},
+		dicts: &Dictionaries{
+			dicts: map[string]*Dictionary{
+				"key": {},
+			},
+		},
+		reqHandlers: map[PacketCode]func(*Packet) (*Packet, error){
+			1: func(p *Packet) (*Packet, error) {
+				return nil, fmt.Errorf("hndlr error")
+			},
+		},
+	}
+	rcv := []byte{
+		0x01, 0x03, 0x02, 0x02, 0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x04,
+		0x05, 0x05, 0x05, 0x05, 0x05, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
+		0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x08, 0x08, 0x08, 0x08,
+	}
+	var synConn syncedConn = &syncedUDPConn{
+		connID: "key",
+		addr: &net.UDPAddr{
+			IP: net.IP{127, 0, 0, 1},
+		},
+		pc: &pcMock{
+			testcase: "sendReply err",
+		},
+	}
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	srv.handleRcvedBytes(rcv, synConn)
+	time.Sleep(11 * time.Millisecond)
+	explog := fmt.Sprintf("error: <%s> sending reply\n", "WriteTo error")
+	rcvlog := buf.String()[20:]
+
+	if !reflect.DeepEqual(rcvlog, explog) {
+		t.Errorf("\nexpected: <%+v>, \nreceived: <%+v>", explog, rcvlog)
+	}
+}
+
 type connMock struct {
 	testcase string
 }
@@ -195,6 +395,10 @@ func (cM *connMock) Read(b []byte) (n int, err error) {
 }
 
 func (cM *connMock) Write(b []byte) (n int, err error) {
+	switch cM.testcase {
+	case "writeError":
+		err = fmt.Errorf("write mock error")
+	}
 	return
 }
 
@@ -325,6 +529,10 @@ func TestServerlistenAndServeTCPInvalidAddress(t *testing.T) {
 	}
 }
 
+func TestServerlistenAndServeTCPDiffErr(t *testing.T) {
+
+}
+
 func TestServerlistenAndServeUDPInvalidAddress(t *testing.T) {
 	stopChan := make(chan struct{})
 	srv := &Server{
@@ -402,5 +610,50 @@ func TestServerlistenAndServeUDPDefaultReadSuccess(t *testing.T) {
 	if rcv != exp {
 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
 	}
-
 }
+
+// func TestServerlistenAndServeUDP2(t *testing.T) {
+// 	stopChan := make(chan struct{})
+// 	srv := &Server{
+// 		net:     "udp",
+// 		addr:    "127.0.0.1:1234",
+// 		secrets: NewSecrets(map[string]string{"key": "value"}),
+// 	}
+// 	var buf bytes.Buffer
+// 	log.SetOutput(&buf)
+// 	defer func() {
+// 		log.SetOutput(os.Stderr)
+// 	}()
+// 	p := make([]byte, 31)
+// 	go func() {
+// 		conn, err := net.Dial(srv.net, "127.0.0.1:1234")
+// 		if err != nil {
+// 			t.Error(err)
+// 		}
+// 		defer conn.Close()
+// 		conn.Write([]byte("random text"))
+// 		_, err = bufio.NewReader(conn).Read(p)
+// 		if err != nil {
+// 			t.Error(err)
+// 		}
+// 	}()
+
+// 	go func() {
+// 		time.Sleep(10 * time.Millisecond)
+// 		close(stopChan)
+// 	}()
+// 	exp := fmt.Sprintf(
+// 		"error: unexpected packet length received over UDP, should be: <%d>, received: <%d>\n",
+// 		33,
+// 		8277,
+// 	)
+// 	err := srv.listenAndServeUDP(stopChan)
+
+// 	if err != nil {
+// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+// 	}
+// 	rcv := buf.String()[20:]
+// 	if rcv != exp {
+// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
+// 	}
+// }
