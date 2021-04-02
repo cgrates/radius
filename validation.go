@@ -175,7 +175,7 @@ func GenerateNTResponse(authenticatorChallenge, peerChallenge []byte, username, 
 	challenge := ChallengeHash(peerChallenge, authenticatorChallenge, username)
 	ucs2Password, err := ToUTF16(password)
 	if err != nil {
-		return []byte{}, err
+		return []byte{}, err // unable to check this error
 	}
 	passwordHash := HashPassword(ucs2Password)
 
@@ -257,7 +257,7 @@ func DESCrypt(key, clear []byte) []byte {
 func GenerateAuthenticatorResponse(authenticatorChallenge, peerChallenge, ntResponse []byte, username, password string) (string, error) {
 	ucs2Password, err := ToUTF16(password)
 	if err != nil {
-		return "", err
+		return "", err // unable to check this error
 	}
 
 	passwordHash := HashPassword(ucs2Password)
@@ -303,7 +303,7 @@ func GenerateClientMSCHAPResponse(authenticator [16]byte, userName, password str
 	challenge := ChallengeHash(peerChallenge, authenticator[:], userName)
 	ucs2Password, err := ToUTF16(password)
 	if err != nil {
-		return nil, err
+		return nil, err // unable to check this error
 	}
 	passwordHash := HashPassword(ucs2Password)
 	// compose peerResponse

@@ -350,7 +350,7 @@ func (dict *Dictionary) walkFunc(path string, info os.FileInfo, err error) error
 		if file, err := os.Open(dictFilePath); err != nil {
 			return err
 		} else if err = dict.ParseFromReader(file); err != nil {
-			return err
+			return err // unable to check this error
 		}
 	}
 	return nil
