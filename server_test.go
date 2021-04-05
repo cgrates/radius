@@ -612,48 +612,125 @@ func TestServerlistenAndServeUDPDefaultReadSuccess(t *testing.T) {
 	}
 }
 
-// func TestServerlistenAndServeUDP2(t *testing.T) {
-// 	stopChan := make(chan struct{})
-// 	srv := &Server{
-// 		net:     "udp",
-// 		addr:    "127.0.0.1:1234",
-// 		secrets: NewSecrets(map[string]string{"key": "value"}),
-// 	}
-// 	var buf bytes.Buffer
-// 	log.SetOutput(&buf)
-// 	defer func() {
-// 		log.SetOutput(os.Stderr)
-// 	}()
-// 	p := make([]byte, 31)
-// 	go func() {
-// 		conn, err := net.Dial(srv.net, "127.0.0.1:1234")
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 		defer conn.Close()
-// 		conn.Write([]byte("random text"))
-// 		_, err = bufio.NewReader(conn).Read(p)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 	}()
+type pconnMock struct {
+	testcase string
+	stopChan chan struct{}
+}
 
-// 	go func() {
-// 		time.Sleep(10 * time.Millisecond)
-// 		close(stopChan)
-// 	}()
-// 	exp := fmt.Sprintf(
-// 		"error: unexpected packet length received over UDP, should be: <%d>, received: <%d>\n",
-// 		33,
-// 		8277,
-// 	)
-// 	err := srv.listenAndServeUDP(stopChan)
+func (pcM *pconnMock) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	switch pcM.testcase {
+	case "ReadFrom error":
+		err = fmt.Errorf("packetConn mock error")
+		close(pcM.stopChan)
+		return 0, nil, err
+	}
+	return 0, nil, nil
+}
 
-// 	if err != nil {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
-// 	}
-// 	rcv := buf.String()[20:]
-// 	if rcv != exp {
-// 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
-// 	}
-// }
+func (pcM *pconnMock) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	return 0, nil
+}
+
+func (pcM *pconnMock) Close() error {
+	return nil
+}
+
+func (pcM *pconnMock) LocalAddr() net.Addr {
+	return nil
+}
+
+func (pcM *pconnMock) SetDeadline(t time.Time) error {
+	return nil
+}
+
+func (pcM *pconnMock) SetReadDeadline(t time.Time) error {
+	return nil
+}
+
+func (pcM *pconnMock) SetWriteDeadline(t time.Time) error {
+	return nil
+}
+
+type lnMock struct {
+	testcase string
+	stopChan chan struct{}
+}
+
+func (lM *lnMock) Accept() (net.Conn, error) {
+	switch lM.testcase {
+	case "listener Accept error":
+		err := fmt.Errorf("Accept mock error")
+		close(lM.stopChan)
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (lM *lnMock) Close() error {
+	return nil
+}
+
+func (lM *lnMock) Addr() net.Addr {
+	return nil
+}
+
+func TestServerserveUDPReadFromFail(t *testing.T) {
+	srv := &Server{
+		net:     "udp",
+		addr:    "127.0.0.1:1234",
+		secrets: NewSecrets(map[string]string{"key": "value"}),
+	}
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	pc := &pconnMock{
+		testcase: "ReadFrom error",
+		stopChan: make(chan struct{}),
+	}
+
+	experr := "packetConn mock error"
+	explog := fmt.Sprintf("error: <%s> when reading packets over udp\n", experr)
+	err := srv.serveUDP(pc.stopChan, pc)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	rcv := buf.String()[20:]
+	if rcv != explog {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", explog, rcv)
+	}
+}
+
+func TestServerserveTCPAcceptFail(t *testing.T) {
+	srv := &Server{
+		addr: "127.0.0.1:1234",
+	}
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	ln := &lnMock{
+		testcase: "listener Accept error",
+		stopChan: make(chan struct{}),
+	}
+
+	experr := "Accept mock error"
+	explog := fmt.Sprintf("error: <%s>, when establishing new connection\n", experr)
+	err := srv.serveTCP(ln.stopChan, ln)
+
+	if err != nil {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+	}
+
+	rcv := buf.String()[20:]
+	if rcv != explog {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", explog, rcv)
+	}
+}
