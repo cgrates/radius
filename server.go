@@ -212,6 +212,10 @@ func (s *Server) listenAndServeUDP(stopChan <-chan struct{}) error {
 		<-stopChan
 		pc.Close()
 	}()
+	return s.serveUDP(stopChan, pc)
+}
+
+func (s *Server) serveUDP(stopChan <-chan struct{}, pc net.PacketConn) error {
 	for {
 		select {
 		case <-stopChan:
@@ -245,6 +249,10 @@ func (s *Server) listenAndServeTCP(stopChan <-chan struct{}) error {
 		<-stopChan
 		ln.Close()
 	}()
+	return s.serveTCP(stopChan, ln)
+}
+
+func (s *Server) serveTCP(stopChan <-chan struct{}, ln net.Listener) error {
 	for {
 		select {
 		case <-stopChan:
