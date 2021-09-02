@@ -16,12 +16,13 @@ Support for client based secret and dictionaries.
 package main
 
 import (
-	. "github.com/cgrates/radigo"
 	"log"
 	"strings"
+
+	. "github.com/cgrates/radigo"
 )
 
-	var sampleDict =`
+var sampleDict = `
 ## Sample dictionary file containing few lines of Cisco vendor
 
 # Vendors
@@ -56,15 +57,16 @@ func main() {
 	secrets := NewSecrets(map[string]string{"127.0.0.1": "CGRateS.org"})
 	dicts := NewDictionaries(map[string]*Dictionary{"127.0.0.1": dict})
 
+	stopCh := make(chan struct{})
 	// Start RADIUS AUTH Server
 	go NewServer("tcp", "localhost:1812",
 		secrets, dicts,
-		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}, nil).ListenAndServe()
+		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}, nil).ListenAndServe(stopCh)
 
 	// Start RADIUS ACCT Server
 	go NewServer("tcp", "localhost:1813",
 		secrets, dicts,
-		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}, nil).ListenAndServe()
+		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}, nil).ListenAndServe(stopCh)
 
 	// Connect Auth client:
 	authClnt, err := NewClient("tcp", "localhost:1812", "CGRateS.org", dict, 0, nil)
@@ -84,8 +86,7 @@ func main() {
 	} else {
 		log.Printf("Received reply: %+v", reply.Code)
 	}
+	close(stopCh)
 }
-
-
 ```
 [![Build Status](https://secure.travis-ci.org/cgrates/radigo.png)](http://travis-ci.org/cgrates/radigo)
