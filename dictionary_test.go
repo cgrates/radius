@@ -394,8 +394,8 @@ func TestDictionaryQueries(t *testing.T) {
 	}
 }
 
-func TestNewDictionaryFromFolderWithRFC2865(t *testing.T) {
-	dict, err := NewDictionaryFromFolderWithRFC2865("dict")
+func TestNewDictionaryFromFoldersWithRFC2865(t *testing.T) {
+	dict, err := NewDictionaryFromFoldersWithRFC2865([]string{"dict", "dict2"})
 	if err != nil {
 		t.Error(err)
 	}
@@ -410,6 +410,12 @@ func TestNewDictionaryFromFolderWithRFC2865(t *testing.T) {
 	}
 	if len(dict.an["Cisco"]) != 2 {
 		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.an["Cisco"]), dict.an["Cisco"])
+	}
+	if len(dict.ac[311]) != 6 {
+		t.Errorf("Expecting len: 6, received len: %d, items: %+v", len(dict.ac[311]), dict.ac[311])
+	}
+	if len(dict.an["Microsoft"]) != 6 {
+		t.Errorf("Expecting len: 6, received len: %d, items: %+v", len(dict.an["Microsoft"]), dict.an["Microsoft"])
 	}
 	if len(dict.vc) != 2 {
 		t.Errorf("Expecting len: 2, received len: %d, items: %+v", len(dict.vc), dict.vc)
@@ -497,11 +503,11 @@ func TestDictionaryparseDictionaryVendorInvalidValue(t *testing.T) {
 	}
 }
 
-func TestDictionaryNewDictionaryFromFolderWithRFC2865(t *testing.T) {
-	dirPath := "invalidPath"
+func TestDictionaryNewDictionaryFromFoldersWithRFC2865(t *testing.T) {
+	dirPath := []string{"invalidPath"}
 
-	experr := fmt.Sprintf("stat %s: no such file or directory", dirPath)
-	rcv, err := NewDictionaryFromFolderWithRFC2865(dirPath)
+	experr := fmt.Sprintf("stat %s: no such file or directory", dirPath[0])
+	rcv, err := NewDictionaryFromFoldersWithRFC2865(dirPath)
 
 	if err == nil || err.Error() != experr {
 		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
