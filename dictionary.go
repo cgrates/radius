@@ -186,12 +186,14 @@ func RFC2865Dictionary() (d *Dictionary) {
 	return
 }
 
-// NewDictionaryFromFolderWithDefaults parses the folder and returns the Dictionary object
+// NewDictionaryFromFoldersWithDefaults parses the folder and returns the Dictionary object
 // Resulting dictionary contains RFC2865 elements
-func NewDictionaryFromFolderWithRFC2865(dirPath string) (*Dictionary, error) {
+func NewDictionaryFromFoldersWithRFC2865(dirPath []string) (*Dictionary, error) {
 	dict := RFC2865Dictionary()
-	if err := dict.ParseFromFolder(dirPath); err != nil {
-		return nil, err
+	for _, path := range dirPath {
+		if err := dict.ParseFromFolder(path); err != nil {
+			return nil, err
+		}
 	}
 	return dict, nil
 }
