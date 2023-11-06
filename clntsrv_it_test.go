@@ -18,18 +18,14 @@ var (
 
 func handleAuth(req *Packet) (rpl *Packet, err error) {
 	rpl = req.Reply()
-	for _, avp := range req.AVPs {
-		rpl.AVPs = append(rpl.AVPs, avp)
-	}
+	rpl.AVPs = append(rpl.AVPs, req.AVPs...)
 	rpl.Code = AccessAccept
 	return
 }
 
 func handleAcct(req *Packet) (rpl *Packet, err error) {
 	rpl = req.Reply()
-	for _, avp := range req.AVPs {
-		rpl.AVPs = append(rpl.AVPs, avp)
-	}
+	rpl.AVPs = append(rpl.AVPs, req.AVPs...)
 	rpl.Code = AccountingResponse
 	return
 }
@@ -65,14 +61,16 @@ END-VENDOR      Cisco
 	dicts := NewDictionaries(map[string]*Dictionary{"127.0.0.1": RFC2865Dictionary()})
 	go NewServer("tcp", "localhost:1812",
 		secrets, dicts,
-		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth}, nil).ListenAndServe(stopChan)
+		map[PacketCode]func(*Packet) (*Packet, error){AccessRequest: handleAuth},
+		nil, nil).ListenAndServe(stopChan)
 	go NewServer("tcp", "localhost:1813",
 		secrets, dicts,
-		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct}, nil).ListenAndServe(stopChan)
+		map[PacketCode]func(*Packet) (*Packet, error){AccountingRequest: handleAcct},
+		nil, nil).ListenAndServe(stopChan)
 }
 
 func TestRadClientAuth(t *testing.T) {
-	authClnt, err := NewClient("tcp", "localhost:1812", "CGRateS.org", dict, 0, nil)
+	authClnt, err := NewClient("tcp", "localhost:1812", "CGRateS.org", dict, 0, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -106,7 +104,7 @@ func TestRadClientAuth(t *testing.T) {
 }
 
 func TestRadClientAccount(t *testing.T) {
-	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", dict, 0, nil)
+	acntClnt, err := NewClient("tcp", "localhost:1813", "CGRateS.org", dict, 0, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,7 +130,7 @@ func TestRadClientAccount(t *testing.T) {
 func TestRadClientAuthDifferentSecret(t *testing.T) {
 	// for this test the verify for authenticity is done on client side
 	// client.go line 143
-	authClnt, err := NewClient("tcp", "localhost:1812", "InvalidSecret", dict, 0, nil)
+	authClnt, err := NewClient("tcp", "localhost:1812", "InvalidSecret", dict, 0, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -151,7 +149,7 @@ func TestRadClientAuthDifferentSecret(t *testing.T) {
 }
 
 func TestRadClientAccountDifferentSecret(t *testing.T) {
-	acntClnt, err := NewClient("tcp", "localhost:1813", "InvalidSecret", dict, 0, nil)
+	acntClnt, err := NewClient("tcp", "localhost:1813", "InvalidSecret", dict, 0, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -111,13 +112,16 @@ func sendReply(synConn syncedConn, rply *Packet) (err error) {
 
 func NewServer(net, addr string, secrets *Secrets, dicts *Dictionaries,
 	reqHandlers map[PacketCode]func(*Packet) (*Packet, error),
-	avpCoders map[string]codecs.AVPCoder) *Server {
+	avpCoders map[string]codecs.AVPCoder, l logger) *Server {
+	if l == nil || (reflect.ValueOf(l).Kind() == reflect.Ptr && reflect.ValueOf(l).IsNil()) {
+		l = nopLogger{}
+	}
 	coder := NewCoder()
 	for k, v := range avpCoders {
 		coder[k] = v
 	}
 	return &Server{net: net, addr: addr, secrets: secrets,
-		dicts: dicts, reqHandlers: reqHandlers, coder: coder}
+		dicts: dicts, reqHandlers: reqHandlers, coder: coder, l: l}
 }
 
 // Server represents a single listener on a port
@@ -129,6 +133,7 @@ type Server struct {
 	reqHandlers map[PacketCode]func(*Packet) (*Packet, error) // map[PacketCode]handler, 0 for default
 	coder       Coder                                         // codecs for AVP values
 	rhMux       sync.RWMutex                                  // protects reqHandlers
+	l           logger
 }
 
 // RegisterHandler registers a new handler after the server was instantiated
@@ -191,7 +196,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		var b [MaxPacketLen]byte
 		n, err := conn.Read(b[:])
 		if err != nil {
-			log.Printf("error: <%s> when reading packets, disconnecting...", err.Error())
+			s.l.Debug(fmt.Sprintf("error: <%s> when reading packets, disconnecting...", err.Error()))
 			conn.Close()
 			return
 		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
