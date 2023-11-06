@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -52,7 +53,7 @@ func TestClientNewClientErrConnect(t *testing.T) {
 	avpCoders := map[string]codecs.AVPCoder{}
 
 	experr := "dial: unknown network "
-	rcv, err := NewClient(net, address, secret, dict, connAttempts, avpCoders)
+	rcv, err := NewClient(net, address, secret, dict, connAttempts, avpCoders, nil)
 
 	if err == nil || err.Error() != experr {
 		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", experr, err)
@@ -77,15 +78,33 @@ func TestClientNewClientAddCoders(t *testing.T) {
 	avpCoders := map[string]codecs.AVPCoder{
 		IntegerValue: codecs.IntegerCodec{},
 	}
-	rcv, err := NewClient(net, address, secret, dict, connAttempts, avpCoders)
-	exp := rcv
-	if err != nil {
-		t.Fatalf("\nExpected: <%+v>, \nReceived: <%+v>", nil, err)
+
+	exp := &Client{
+		net:     "udp",
+		address: strings.TrimPrefix(srv.URL, "http://"),
+		secret:  "",
+		coder: Coder{
+			"address": codecs.AddressCodec{},
+			"integer": codecs.IntegerCodec{},
+			"ipaddr":  codecs.AddressCodec{},
+			"octets":  codecs.OctetsCodec{},
+			"string":  codecs.StringCodec{},
+			"text":    codecs.TextCodec{},
+			"time":    codecs.TimeCodec{},
+		},
+	}
+	if rcv, err := NewClient(net, address, secret, dict, connAttempts, avpCoders, nil); err != nil {
+		t.Error()
+	} else if exp.net != rcv.net {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp.net, rcv.net)
+	} else if exp.address != rcv.address {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp.address, rcv.address)
+	} else if exp.secret != rcv.secret {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp.secret, rcv.secret)
+	} else if !reflect.DeepEqual(exp.coder, rcv.coder) {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%T>", exp.coder, rcv.coder)
 	}
 
-	if rcv != exp {
-		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
-	}
 }
 
 func TestClientconnectZeroAttempts(t *testing.T) {
@@ -128,24 +147,20 @@ func TestClientreadReplies(t *testing.T) {
 }
 
 func TestClientreadRepliesInvalidReadArgument(t *testing.T) {
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer func() {
-		log.SetOutput(os.Stderr)
-	}()
-
 	stopRead := make(chan struct{})
+	l := &loggerMock{}
 	c := &Client{
 		conn: &net.UDPConn{},
+		l:    l,
 	}
 
 	c.readReplies(stopRead)
 
-	explog := fmt.Sprintf("error <%s> when reading connection\n", "invalid argument")
-	rcvlog := buf.String()[20:]
-
-	if rcvlog != explog {
-		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", explog, rcvlog)
+	explog := "error <invalid argument> when reading connection"
+	if l.msgType != "debug" {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", "debug", l.msgType)
+	} else if l.msg != explog {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", explog, l.msg)
 	}
 }
 func TestClientreadRepliesUnexpectedLen(t *testing.T) {
@@ -200,6 +215,7 @@ func TestClientreadRepliesDecodeFail(t *testing.T) {
 				pkt:    &Packet{},
 			},
 		},
+		l: nopLogger{},
 	}
 
 	c.readReplies(stopRead)
@@ -240,6 +256,7 @@ func TestClientreadReplies1(t *testing.T) {
 				pkt:    &Packet{},
 			},
 		},
+		l: nopLogger{},
 	}
 
 	c.readReplies(stopRead)

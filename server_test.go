@@ -140,8 +140,9 @@ func TestServerNewServer(t *testing.T) {
 			"text":    codecs.TextCodec{},
 			"time":    codecs.TimeCodec{},
 		},
+		l: nopLogger{},
 	}
-	rcv := NewServer(net, addr, secrets, dicts, reqHandlers, avpCoders)
+	rcv := NewServer(net, addr, secrets, dicts, reqHandlers, avpCoders, nil)
 
 	if !reflect.DeepEqual(rcv, exp) {
 		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", exp, rcv)
@@ -426,21 +427,62 @@ func (cM *connMock) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
+type loggerMock struct {
+	msgType, msg string
+}
+
+func (lM *loggerMock) Alert(string) error {
+	return nil
+}
+
+func (lM *loggerMock) Close() error {
+	return nil
+}
+
+func (lM *loggerMock) Crit(string) error {
+	return nil
+}
+
+func (lM *loggerMock) Debug(event string) error {
+	lM.msgType = "debug"
+	lM.msg = event
+	return nil
+}
+
+func (lM *loggerMock) Emerg(string) error {
+	return nil
+}
+
+func (lM *loggerMock) Err(string) error {
+	return nil
+}
+
+func (lM *loggerMock) Info(string) error {
+	return nil
+}
+
+func (lM *loggerMock) Notice(string) error {
+	return nil
+}
+
+func (lM *loggerMock) Warning(string) error {
+	return nil
+}
 func TestServerhandleTCPConnReadError(t *testing.T) {
-	srv := &Server{}
+	l := &loggerMock{}
+	srv := &Server{
+		l: l,
+	}
 	conn := &connMock{
 		testcase: "readError",
 	}
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer func() {
-		log.SetOutput(os.Stderr)
-	}()
-	explog := fmt.Sprintf("error: <%s> when reading packets, disconnecting...\n", "read mock error")
-	srv.handleTCPConn(conn)
 
-	if buf.String()[20:] != explog {
-		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", explog, buf.String()[20:])
+	explog := "error: <read mock error> when reading packets, disconnecting..."
+	srv.handleTCPConn(conn)
+	if l.msgType != "debug" {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", "debug", l.msgType)
+	} else if l.msg != explog {
+		t.Errorf("\nExpected: <%+v>, \nReceived: <%+v>", explog, l.msg)
 	}
 }
 

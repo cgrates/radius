@@ -4,8 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"log"
 	"net"
+	"reflect"
 	"sync"
 	"time"
 
@@ -29,10 +31,13 @@ type packetReplyHandler struct {
 
 // NewClient creates a new client and connects it to the address
 func NewClient(net, address string, secret string, dict *Dictionary,
-	connAttempts int, avpCoders map[string]codecs.AVPCoder) (*Client, error) {
+	connAttempts int, avpCoders map[string]codecs.AVPCoder, l logger) (*Client, error) {
 	clnt := &Client{net: net, address: address, secret: secret, dict: dict,
 		connAttempts: connAttempts, activeReqs: make(map[uint8]*packetReplyHandler),
-		coder: NewCoder()}
+		coder: NewCoder(), l: l}
+	if l == nil || (reflect.ValueOf(l).Kind() == reflect.Ptr && reflect.ValueOf(l).IsNil()) {
+		l = nopLogger{}
+	}
 	for k, v := range avpCoders { // add the extra coders
 		clnt.coder[k] = v
 	}
@@ -57,6 +62,7 @@ type Client struct {
 	connAttempts int
 	activeReqs   map[uint8]*packetReplyHandler // keep record of sent packets for matching with repliesa
 	aReqsMux     sync.Mutex                    // protects activeRequests
+	l            logger
 }
 
 func (c *Client) connect(connAttempts int) (err error) {
@@ -112,7 +118,7 @@ func (c *Client) readReplies(stopReading chan struct{}) {
 		var b [4096]byte
 		n, err := c.conn.Read(b[:])
 		if err != nil {
-			log.Printf("error <%s> when reading connection", err.Error())
+			c.l.Debug(fmt.Sprintf("error <%s> when reading connection", err.Error()))
 			c.disconnect()
 			break
 		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
