@@ -20,6 +20,12 @@ const (
 	AccessChallenge      PacketCode = 11
 	StatusServer         PacketCode = 12 //(experimental)
 	StatusClient         PacketCode = 13 //(experimental)
+	DisconnectRequest    PacketCode = 40
+	DisconnectACK        PacketCode = 41
+	DisconnectNAK        PacketCode = 42
+	CoARequest           PacketCode = 43
+	CoAACK               PacketCode = 44
+	CoANAK               PacketCode = 45
 	Reserved             PacketCode = 255
 	ReplyMessage                    = 18
 	VendorSpecificNumber            = 26 // vendor specific AVP number
@@ -31,18 +37,23 @@ var (
 	ErrNotImplemented = errors.New("not implemented")
 )
 
-// computeAuthenticator computes the authenticator
-// raw is the data received or to be sent over network
+// computeAuthenticator computes the authenticator based on packet code, raw data, and secret.
 func computeAuthenticator(raw []byte, secret string) (acator [16]byte) {
 	pCode := PacketCode(raw[0])
 	switch pCode {
 	case AccessRequest:
+		// For AccessRequest, use the authenticator provided in the request.
 		copy(acator[:], raw[4:20])
-	case AccessAccept, AccessReject, AccessChallenge, AccountingRequest, AccountingResponse:
-		if pCode == AccountingRequest { // AccountingRequest concatenates null instead of previous authenticator so we trick it here
+
+	case AccessAccept, AccessReject, AccessChallenge, AccountingRequest, AccountingResponse, DisconnectRequest, DisconnectACK, DisconnectNAK, CoARequest, CoAACK, CoANAK:
+		// Special handling for certain packet codes that require null authenticator.
+		switch pCode {
+		case AccountingRequest, DisconnectRequest, CoARequest:
 			var nul [16]byte
 			copy(raw[4:20], nul[:])
 		}
+
+		// Compute MD5 hash using the packet's raw data and the secret.
 		hash := md5.New()
 		hash.Write(raw[:])
 		hash.Write([]byte(secret))
@@ -81,6 +92,18 @@ func (p PacketCode) String() string {
 		return "StatusServer"
 	case StatusClient:
 		return "StatusClient"
+	case DisconnectRequest:
+		return "DisconnectRequest"
+	case DisconnectACK:
+		return "DisconnectACK"
+	case DisconnectNAK:
+		return "DisconnectNAK"
+	case CoARequest:
+		return "CoARequest"
+	case CoAACK:
+		return "CoAACK"
+	case CoANAK:
+		return "CoANAK"
 	case Reserved:
 		return "Reserved"
 	}
@@ -184,18 +207,32 @@ func (p *Packet) Reply() *Packet {
 	}
 }
 
-// NegativeReply generates a reply with unsuccess for received packet
-func (p *Packet) NegativeReply(errMsg string) (rply *Packet) {
-	rply = p.Reply()
+// NegativeReply generates a response packet indicating a failure or rejection based on the original request.
+func (p *Packet) NegativeReply(errMsg string) *Packet {
+	rply := p.Reply() // Create a reply packet based on the original request.
+
+	// Set the response code based on the type of the request.
 	switch p.Code {
 	case AccessRequest:
 		rply.Code = AccessReject
-		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, RawValue: []byte(errMsg)})
-	case AccountingRequest: // normally RFC 2866 advises against, possibility to be RFC agnostic
+	case AccountingRequest:
+		// Normally, RFC 2866 (Section 4.1.) advises against sending negative replies for AccountingRequest,
+		// but this allows the possibility to remain RFC agnostic.
 		rply.Code = AccountingResponse
-		rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, RawValue: []byte(errMsg)})
+
+	case CoARequest:
+		rply.Code = CoANAK
+	case DisconnectRequest:
+		rply.Code = DisconnectNAK
+	default:
+		// If the request type is not handled, return the original reply.
+		return rply
 	}
-	return
+
+	// Add the error message to the Reply-Message attribute.
+	rply.AVPs = append(rply.AVPs, &AVP{Number: ReplyMessage, RawValue: []byte(errMsg)})
+
+	return rply
 }
 
 func (p *Packet) SetAVPValues() {
@@ -215,23 +252,35 @@ func (p *Packet) SetAVPValues() {
 func (p *Packet) SetCodeWithName(codeName string) (err error) {
 	switch codeName {
 	case "AccessRequest":
-		p.Code = 1
+		p.Code = AccessRequest
 	case "AccessAccept":
-		p.Code = 2
+		p.Code = AccessAccept
 	case "AccessReject":
-		p.Code = 3
+		p.Code = AccessReject
 	case "AccountingRequest":
-		p.Code = 4
+		p.Code = AccountingRequest
 	case "AccountingResponse":
-		p.Code = 5
+		p.Code = AccountingResponse
 	case "AccessChallenge":
-		p.Code = 11
+		p.Code = AccessChallenge
 	case "StatusServer":
-		p.Code = 12
+		p.Code = StatusServer
 	case "StatusClient":
-		p.Code = 13
+		p.Code = StatusClient
+	case "DisconnectRequest":
+		p.Code = DisconnectRequest
+	case "DisconnectACK":
+		p.Code = DisconnectACK
+	case "DisconnectNAK":
+		p.Code = DisconnectNAK
+	case "CoARequest":
+		p.Code = CoARequest
+	case "CoAACK":
+		p.Code = CoAACK
+	case "CoANAK":
+		p.Code = CoANAK
 	case "Reserved":
-		p.Code = 255
+		p.Code = Reserved
 	default:
 		return fmt.Errorf("unsupported packet code name: <%s>", codeName)
 	}

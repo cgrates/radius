@@ -16,16 +16,14 @@ func (cdc AddressCodec) Decode(b []byte) (v interface{}, s string, err error) {
 }
 
 // Encode is part of AVPCoder interface
-func (cdc AddressCodec) Encode(v interface{}) (b []byte, err error) {
+func (cdc AddressCodec) Encode(v interface{}) ([]byte, error) {
 	ipVal, ok := v.(net.IP)
 	if !ok {
-		err = errors.New("cannot cast to net.IP")
-		return
+		return nil, errors.New("cannot cast to net.IP")
 	}
 	ipVal = ipVal.To4()
 	if ipVal == nil {
-		err = errors.New("cannot enforce IPv4")
-		return
+		return nil, errors.New("cannot enforce IPv4")
 	}
 	return []byte(ipVal), nil
 }

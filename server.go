@@ -235,7 +235,7 @@ func (s *Server) serveUDP(stopChan <-chan struct{}, pc net.PacketConn) error {
 			}
 			log.Printf("error: <%s> when reading packets over udp", err.Error())
 			continue
-		} else if uint16(n) != binary.BigEndian.Uint16(b[2:4]) {
+		} else if uint16(n) < binary.BigEndian.Uint16(b[2:4]) {
 			log.Printf("error: unexpected packet length received over UDP, should be: <%d>, received: <%d>",
 				uint16(n), binary.BigEndian.Uint16(b[2:4]))
 		}

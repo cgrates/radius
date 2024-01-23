@@ -109,7 +109,7 @@ func EncodeUserPassword(plaintext, secret, requestAuthenticator []byte) []byte {
 	return enc
 }
 
-//AuthenticateCHAP receive the password as plaintext and verify against the chap challenge
+// AuthenticateCHAP receive the password as plaintext and verify against the chap challenge
 func AuthenticateCHAP(password, authenticator, chapChallenge []byte) bool {
 	h := md5.New()
 	h.Write(chapChallenge[:1])
@@ -127,7 +127,7 @@ func AuthenticateCHAP(password, authenticator, chapChallenge []byte) bool {
 	return true
 }
 
-//EncodeCHAPPassword is used in test to encode CHAP-Password raw value
+// EncodeCHAPPassword is used in test to encode CHAP-Password raw value
 func EncodeCHAPPassword(password, authenticator []byte) []byte {
 	chapIdent := make([]byte, 1)
 	rand.Read(chapIdent)
@@ -141,27 +141,29 @@ func EncodeCHAPPassword(password, authenticator []byte) []byte {
 	return chapRawVal
 }
 
-// isAuthenticReq returns if the given RADIUS request is an authentic
-// request using the given secret.
-// for the moment we can only authenticate the AccountingRequest
+// isAuthenticReq verifies the authenticity of a given RADIUS request using an MD5 hash and the provided secret.
+// It supports authentication for specific packet types: AccountingRequest, DisconnectRequest, and CoARequest.
 func isAuthenticReq(request, secret []byte) bool {
 	if len(request) < 20 || len(secret) == 0 {
 		return false
 	}
+
 	pCode := PacketCode(request[0])
-	switch pCode {
-	case AccountingRequest:
-		hash := md5.New()
-		hash.Write(request[:4])
-		var nul [16]byte
-		hash.Write(nul[:])
-		hash.Write(request[20:])
-		hash.Write(secret)
-		var sum [md5.Size]byte
-		return bytes.Equal(hash.Sum(sum[:0]), request[4:20])
-	default:
+	// Only proceed with authentication for specific packet types. Assume all others are authentic.
+	if pCode != AccountingRequest && pCode != DisconnectRequest && pCode != CoARequest {
 		return true
 	}
+
+	hash := md5.New()
+	hash.Write(request[:4]) // packet type, identifier and length
+
+	// Use a zero-filled slice as the authenticator for the hash computation.
+	hash.Write(make([]byte, 16))
+
+	hash.Write(request[20:]) // attributes
+	hash.Write(secret)
+
+	return bytes.Equal(hash.Sum(nil), request[4:20])
 }
 
 // ToUTF16 takes an ASCII string and turns it into a UCS-2 / UTF-16 representation
