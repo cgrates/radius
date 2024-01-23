@@ -332,7 +332,7 @@ func (dict *Dictionary) ParseFromFolder(dirPath string) (err error) {
 	if err != nil {
 		return err
 	} else if !fi.IsDir() {
-		return fmt.Errorf("path: %s not a directory.", dirPath)
+		return fmt.Errorf("path: %s not a directory", dirPath)
 	}
 	return filepath.Walk(dirPath, dict.walkFunc)
 }

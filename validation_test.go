@@ -3,7 +3,6 @@ package radigo
 import (
 	"crypto/md5"
 	"fmt"
-	"math/rand"
 	"reflect"
 	"testing"
 )
@@ -144,8 +143,6 @@ func TestValidationAuthenticateCHAP3(t *testing.T) {
 }
 
 func TestValidationEncodeCHAPPassword(t *testing.T) {
-	rand.Seed(10)
-
 	pw := []byte("passwd")
 	auth := []byte("authenticator")
 
