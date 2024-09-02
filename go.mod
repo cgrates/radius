@@ -3,6 +3,6 @@ module github.com/cgrates/radigo
 go 1.21
 
 require (
-	golang.org/x/crypto v0.0.0-20200320181102-891825fb96df
-	golang.org/x/text v0.3.2
+	golang.org/x/crypto v0.26.0
+	golang.org/x/text v0.17.0
 )

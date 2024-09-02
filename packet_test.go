@@ -600,7 +600,7 @@ func TestPacketAddAVPWithNumberDictNotFound(t *testing.T) {
 		dict: &Dictionary{},
 	}
 	var attrNr uint8
-	var val interface{}
+	var val any
 	var vendorCode uint32
 
 	experr := fmt.Sprintf("DICTIONARY_NOT_FOUND, item %d, vendor: %d", attrNr, vendorCode)
@@ -626,7 +626,7 @@ func TestPacketAddAVPWithNumberSetRawValueFail(t *testing.T) {
 		},
 	}
 	attrNr := uint8(5)
-	var val interface{} = 8
+	var val any = 8
 	vendorCode := uint32(0)
 
 	experr := "unsupported attribute type"
@@ -655,7 +655,7 @@ func TestPacketAddAVPWithNumberSuccess(t *testing.T) {
 		},
 	}
 	attrNr := uint8(5)
-	var val interface{} = uint32(8)
+	var val any = uint32(8)
 	vendorCode := uint32(1)
 	explen := len(p.AVPs) + 1
 	expp := &Packet{

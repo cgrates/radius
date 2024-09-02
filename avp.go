@@ -8,12 +8,12 @@ import (
 )
 
 type AVP struct {
-	Number      uint8       // attribute number
-	Name        string      // attribute name
-	Type        string      // type of the value helping us to convert to concrete
-	RawValue    []byte      // original value as byte
-	Value       interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string) or avp.Value.(*VSA))
-	StringValue string      // stores the string value for convenience and pretty print
+	Number      uint8  // attribute number
+	Name        string // attribute name
+	Type        string // type of the value helping us to convert to concrete
+	RawValue    []byte // original value as byte
+	Value       any    // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string) or avp.Value.(*VSA))
+	StringValue string // stores the string value for convenience and pretty print
 }
 
 func (a *AVP) Encode(b []byte) (n int, err error) {
@@ -147,13 +147,13 @@ func NewVSAFromAVP(avp *AVP) (*VSA, error) {
 // originally ported from github.com/bronze1man/radius/avp_vendor.go
 type VSA struct {
 	Vendor      uint32
-	Number      uint8       // attribute number
-	VendorName  string      // populated by dictionary
-	Name        string      // attribute name
-	Type        string      // type of the value helping us to convert to concrete
-	Value       interface{} // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
-	RawValue    []byte      // value as received over network
-	StringValue string      // stores the string value
+	Number      uint8  // attribute number
+	VendorName  string // populated by dictionary
+	Name        string // attribute name
+	Type        string // type of the value helping us to convert to concrete
+	Value       any    // holds the concrete value defined in dictionary, extracted back with type (eg: avp.Value.(string))
+	RawValue    []byte // value as received over network
+	StringValue string // stores the string value
 }
 
 // AVP encodes VSA back into AVP
