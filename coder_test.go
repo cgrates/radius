@@ -11,7 +11,7 @@ func TestCoderEncode(t *testing.T) {
 	cdr := Coder{
 		IntegerValue: codecs.IntegerCodec{},
 	}
-	var v interface{} = uint32(123)
+	var v any = uint32(123)
 
 	exp := []byte{0, 0, 0, 123}
 	rcv, err := cdr.Encode(IntegerValue, v)

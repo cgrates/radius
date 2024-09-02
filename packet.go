@@ -334,7 +334,7 @@ func (p *Packet) AttributesWithName(attrName, vendorName string) (avps []*AVP) {
 }
 
 // AddAVPWithNumber adds an AVP based on it's attribute number and value
-func (p *Packet) AddAVPWithNumber(attrNr uint8, val interface{}, vendorCode uint32) (err error) {
+func (p *Packet) AddAVPWithNumber(attrNr uint8, val any, vendorCode uint32) (err error) {
 	d := p.dict.AttributeWithNumber(attrNr, vendorCode)
 	if d == nil {
 		return fmt.Errorf("DICTIONARY_NOT_FOUND, item %d, vendor: %d", attrNr, vendorCode)

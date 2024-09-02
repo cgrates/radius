@@ -21,7 +21,7 @@ func NewCoder() Coder {
 type Coder map[string]codecs.AVPCoder
 
 // Decode converts raw value received over network into concrete value stored in AVP and it's string representation
-func (cdr Coder) Decode(attrType string, b []byte) (v interface{}, s string, err error) {
+func (cdr Coder) Decode(attrType string, b []byte) (v any, s string, err error) {
 	if _, has := cdr[attrType]; !has {
 		err = ErrUnsupportedAttributeType
 		return
@@ -30,7 +30,7 @@ func (cdr Coder) Decode(attrType string, b []byte) (v interface{}, s string, err
 }
 
 // Encode converts concrete value into raw value to be sent over the network
-func (cdr Coder) Encode(attrType string, v interface{}) (b []byte, err error) {
+func (cdr Coder) Encode(attrType string, v any) (b []byte, err error) {
 	if _, has := cdr[attrType]; !has {
 		err = ErrUnsupportedAttributeType
 		return
